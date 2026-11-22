@@ -1432,9 +1432,17 @@ function pageFromCanvas(c,land){return{jpeg:b64ToBytes(c.toDataURL('image/jpeg',
 async function saveFile(blob,name){if(S.downloads){try{await S.downloads.save({filename:name,data:blob});return true}catch(e){if(e&&e.code==='declined'){toast('Download abgebrochen');return true}}}
  if(STANDALONE){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),30000);toast('Gespeichert: '+name);return true}return false}
 async function savePdf(blob,name){name=name.replace(/[^\wäöüÄÖÜß\-]+/g,'_')+'.pdf';
- if(STANDALONE){await saveFile(blob,name);return}
- if(S.downloads){try{await S.downloads.save({filename:name,data:blob});return}catch(e){if(e&&e.code==='declined'){toast('Download abgebrochen');return}}}
- const url=URL.createObjectURL(blob);openSheet(`<h3 style="margin-top:0">PDF ist fertig</h3><p class="note">${esc(name)} · ${fmt(blob.size/1024,0)} KB</p><div class="row"><a class="btn" href="${url}" target="_blank" rel="noopener" download="${esc(name)}">📄 PDF öffnen</a><button class="btn sec" onclick="closeSheet()">Schließen</button></div>`)}
+ let file=null;try{file=new File([blob],name,{type:'application/pdf'})}catch(e){}
+ const canShare=!!(file&&navigator.share&&navigator.canShare&&navigator.canShare({files:[file]}));
+ const url=URL.createObjectURL(blob);const title=name.replace(/_/g,' ').replace(/\.pdf$/,'');
+ openSheet(`<h3 style="margin-top:0">PDF ist fertig</h3><p class="note">${esc(name)} · ${fmt(blob.size/1024,0)} KB</p>
+ <div style="display:grid;gap:8px">${canShare?'<button class="btn" id="psh">✉️ Per Mail / Teilen</button>':''}
+ ${STANDALONE||S.downloads?'<button class="btn '+(canShare?'sec':'')+'" id="psv">💾 Speichern</button>':''}
+ <a class="btn sec" style="text-decoration:none;text-align:center" href="${url}" target="_blank" rel="noopener" download="${esc(name)}">📄 PDF öffnen</a>
+ <button class="btn sec" onclick="closeSheet()">Schließen</button></div>
+ ${canShare?'<p class="note">„Per Mail / Teilen“ öffnet die Auswahl deines Handys – dort Gmail, Outlook oder eine andere Mail-App wählen. Das PDF ist dann schon angehängt.</p>':''}`,()=>{
+  const sh=$('#psh');if(sh)sh.onclick=async()=>{try{await navigator.share({files:[file],title,text:'Anbei: '+title+'\n\nThermo Dämmtechnik GmbH'})}catch(e){if(!e||e.name!=='AbortError')toast('Teilen nicht möglich – bitte „Speichern“ nutzen')}};
+  const sv=$('#psv');if(sv)sv.onclick=()=>saveFile(blob,name)})}
 /* Seiten-Zeichner (Einheiten in pt, A4) */
 function PdfDoc(land){const W=land?PDFH:PDFW,H=land?PDFW:PDFH;const d={W,H,M:40,pages:[],y:0,ctx:null,land};
  d.newPage=()=>{const c=document.createElement('canvas');c.width=Math.round(W*PXS);c.height=Math.round(H*PXS);const x=c.getContext('2d');x.scale(PXS,PXS);x.fillStyle='#fff';x.fillRect(0,0,W,H);x.textBaseline='alphabetic';d.pages.push(c);d.ctx=x;d.y=d.M;return x};
