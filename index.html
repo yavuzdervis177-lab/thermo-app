@@ -533,7 +533,7 @@ function rProjekt(a,p){
   <div id="tbp">${thumbs(PEND.tb,'np')}</div>
   <div class="row">${cam?phBtn('tb','📷 Foto anhängen','btn sec'):''}<button class="btn sec" id="tba" style="flex:1">Eintrag speichern</button></div>
   ${p.tagebuch.slice().sort((x,y)=>(y.d||'').localeCompare(x.d||'')).map(e=>swipeWrap('e:'+e.id,`<div class="chk"><div style="flex:1;min-width:0"><b style="font-size:13px">${dDE(e.d)}</b><div style="white-space:pre-wrap;font-size:14px">${esc(e.t)}</div>${thumbs(e.fotos||[],'ef',e.id)}</div>${cam?phBtn('ef:'+e.id,'📷','x'):''}<button class="x" data-dx="${e.id}" aria-label="Löschen">🗑</button></div>`,'swchk')).join('')}</div>
-  <div class="row" style="margin-top:6px"><button class="btn" id="ppdf">📄 PDF: Projekt komplett</button><button class="btn sec" id="cp">Projekt als Text kopieren</button><button class="btn bad" id="del">Projekt löschen</button></div>`;
+  <div class="row" style="margin-top:6px"><button class="btn" id="ppdf">📄 PDF: Projekt komplett</button><button class="btn bad" id="del">Projekt löschen</button></div>`;
   if(draft)['tbt','tbd','nt'].forEach((k,i)=>{if(draft[i]!==null)$('#'+k).value=draft[i]});
   const re=()=>rProjekt(a,p);
   a.querySelector('.back').onclick=()=>{UI.proj=null;UI._dp=null;PEND.tb=[];render()};
@@ -564,7 +564,7 @@ function rProjekt(a,p){
   a.querySelectorAll('[data-dx]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();delDiary(e.dataset.dx)});
   a.querySelectorAll('img[data-ph]').forEach(im=>im.onclick=()=>{const id=im.dataset.ph,k=im.dataset.k,o=im.dataset.o;
     photoView(id,()=>{if(k==='pf')p.fotos=p.fotos.filter(f=>f.id!==id);else if(k==='tf'){const t=p.aufgaben.find(x=>x.id===o);if(t)t.fotos=t.fotos.filter(x=>x!==id)}else if(k==='ef'){const t=p.tagebuch.find(x=>x.id===o);if(t)t.fotos=t.fotos.filter(x=>x!==id)}else if(k==='np')PEND.tb=PEND.tb.filter(x=>x!==id);saveProject(p);re()})});
-  $('#cp').onclick=()=>copyText(projectText(p));$('#ppdf').onclick=()=>aufmassPdf(p,'full').catch(e=>toast('PDF fehlgeschlagen'));
+  $('#ppdf').onclick=()=>aufmassPdf(p,'full').catch(e=>toast('PDF fehlgeschlagen'));
   $('#del').onclick=()=>askDeleteProject(p);
 }
 /* ---------- Fotos ---------- */

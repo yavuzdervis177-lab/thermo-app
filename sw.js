@@ -1,5 +1,5 @@
 // IsoPro – Offline-Speicher der App-Dateien
-const CACHE = 'thermo-app-v14';
+const CACHE = 'thermo-app-v15';
 const FILES = ['./', './index.html', './logo.png', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
