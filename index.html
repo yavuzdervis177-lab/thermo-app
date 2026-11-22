@@ -426,9 +426,26 @@ const CALCS=[
  inputs:[DN_INPUT,{k:'d',label:'Rohr-Außen-Ø',u:'mm',def:60.3},{k:'s',label:'Dämmdicke',u:'mm',def:50},{k:'t',label:'Blechdicke',u:'mm',def:0.6},{k:'ue',label:'Überlappung Längsnaht',u:'mm',def:40},{k:'ql',label:'Überlappung Rundnaht',u:'mm',def:50},{k:'tb',label:'Tafelbreite (Länge je Mantelstück)',u:'mm',def:1000},{k:'Lmm',label:'Rohrlänge',u:'mm',def:20000},{k:'vs',label:'Verschnitt',u:'%',def:10}],
  calc(v){const D=v.d+2*v.s;const z=PI*(D+v.t)+v.ue;const nutz=Math.max(v.tb-v.ql,1);const stk=Math.ceil(v.Lmm/nutz);const A=z/1000*v.tb/1000*stk*(1+v.vs/100);
   return{big:[fmt(z,0),'mm'],lbl:'Zuschnittbreite (Abwicklung)',rows:[['Außen-Ø Dämmung',fmt(D,0)+' mm'],['Mantelstücke',stk+' St'],['Blechbedarf inkl. Verschnitt',fmt(A,2)+' m²']],note:'Abwicklung = π × (Dämm-Außen-Ø + Blechdicke) + Längsüberlappung. Sicken/Bördel ggf. zusätzlich berücksichtigen.'}}},
-{id:'tp',ico:'🌡️',col:'#e4f4f6',title:'Taupunkt',sub:'Aus Temperatur und Luftfeuchte',
- inputs:[{k:'T',label:'Lufttemperatur',u:'°C',def:22},{k:'rh',label:'Relative Luftfeuchte',u:'%',def:60}],
- calc(v){return{big:[fmt(taupunkt(v.T,v.rh),1),'°C'],lbl:'Taupunkttemperatur',rows:[[ 'Abstand zur Luft',fmt(v.T-taupunkt(v.T,v.rh),1)+' K']],note:'Magnus-Formel. Oberflächen unter dieser Temperatur bilden Tauwasser.'}}}
+{id:'tp',ico:'🌡️',col:'#e4f4f6',title:'Taupunkt',sub:'Taupunkt, Tauwasser-Risiko und Lösung',
+ inputs:[{k:'T',label:'Lufttemperatur',u:'°C',def:22},{k:'rh',label:'Relative Luftfeuchte',u:'%',def:60},{k:'Ts',label:'Medium- / Oberflächentemp.',u:'°C',def:8,hint:'Temperatur des Rohres bzw. der kalten Fläche. Leer lassen = nur Taupunkt.'},DN_INPUT,{k:'d',label:'Rohr-Außen-Ø',u:'mm',def:48.3},{k:'lam',label:'λ Dämmstoff',u:'W/(m·K)',def:0.036,hint:'Elastomer/FEF ≈ 0,033–0,040 · PIR ≈ 0,025'}],
+ calc(v,raw){const td=taupunkt(v.T,v.rh);const base=[['Taupunkt der Luft',fmt(td,1)+' °C'],['Abstand Luft – Taupunkt',fmt(v.T-td,1)+' K']];
+  if(!raw||String(raw.Ts??'').trim()==='')return{big:[fmt(td,1),'°C'],lbl:'Taupunkttemperatur',rows:base,note:'Magnus-Formel. Oberflächen unter dieser Temperatur bilden Tauwasser. Für einen Lösungsvorschlag die Medium- bzw. Oberflächentemperatur eintragen.'};
+  const diff=v.Ts-td;const rows=[...base,['Oberfläche',fmt(v.Ts,1)+' °C'],['Abstand zum Taupunkt',(diff>=0?'+':'')+fmt(diff,1)+' K']];
+  if(diff>=2)return{big:[fmt(td,1),'°C'],lbl:'✅ Kein Tauwasser',rows,note:'Die Oberfläche liegt mehr als 2 K über dem Taupunkt – es bildet sich kein Kondensat. Bei Kälteleitungen trotzdem auf schwankende Luftfeuchte (Sommer, Technikräume) achten.'};
+  const warn=diff>=0;
+  let smin=null;if(v.Ts<v.T){for(let s=0;s<=300;s+=0.5){const r=rohr(v.Ts,v.T,v.d||48.3,s,v.lam||0.036,6);if(r.ts>=td+1){smin=s;break}}}
+  const std=smin!==null?(STD_S.find(x=>x>=smin)||Math.ceil(smin)):null;
+  if(std!==null)rows.push(['Mindestdämmdicke (rechn.)',fmt(smin,1)+' mm'],['Empfohlene Dämmdicke',Math.max(std,9)+' mm']);
+  const tips=[
+   std!==null?`<b>Dämmen mit mind. ${Math.max(std,9)} mm</b>${std<9?' (rechnerisch reichen '+std+' mm, praxisüblich sind mind. 9 mm)':''} geschlossenzelligem Dämmstoff (Elastomer/FEF, μ ≥ 7.000) – oder PIR-/Mineralwollschale mit durchgehender Alu-Dampfsperre.`:'<b>Dämmung allein reicht hier nicht</b> – Luftfeuchte senken oder Mediumtemperatur anheben.',
+   'Alle <b>Längs- und Stoßnähte vollflächig verkleben</b>, Enden an Armaturen, Flanschen und Stutzen mit Kleber abschotten (keine offenen Kopfseiten).',
+   'Halterungen <b>kältebrückenfrei</b> ausführen: Kälteschellen mit PUR-/PIR-Einlage, Dämmung durch die Schelle führen.',
+   'Armaturen und Formteile mit <b>Kappen aus gleichem Material</b> dämmen – keine Lücken an Ventilen und Pumpen.',
+   '<b>Dampfsperre nie durchstoßen</b>: Blechmantel nur über Schutzschicht, keine Blechschrauben in die Dämmung.',
+   'Wenn möglich zusätzlich <b>Raumluft entfeuchten oder lüften</b> – senkt den Taupunkt.'];
+  return{big:[fmt(td,1),'°C'],lbl:warn?'⚠️ Knapp – Tauwasser möglich':'❌ Tauwasser bildet sich',rows,
+   note:`<b>Lösungsvorschlag</b><ul style="margin:6px 0 0;padding-left:18px">${tips.map(t=>`<li style="margin:4px 0">${t}</li>`).join('')}</ul><div style="margin-top:6px">Rechnung mit α = 6 W/(m²·K) und 1 K Sicherheit (sichere Seite).</div>`,
+   act:{label:'💧 Im Tauwasser-Rechner genau berechnen',fn:()=>{const t=calcVals.tau||(calcVals.tau={});const fm=x=>String(x).replace('.',',');t.Tm=fm(v.Ts);t.Ta=fm(v.T);t.rh=fm(v.rh);if(v.d)t.d=fm(v.d);if(v.lam)t.lam=fm(v.lam);lsSet('isopro_calc',calcVals);UI.calc='tau';render();window.scrollTo(0,0)}}}}}
 ];
 
 /* ---------- Navigation ---------- */
@@ -454,8 +471,8 @@ function rRechner(a){
   a.innerHTML=`<button class="back">‹ Alle Rechner</button><h2>${c.ico} ${c.title}</h2><div id="res"></div><div class="card"><div class="grid2">${c.inputs.map(fld).join('')}</div><button class="btn sec full" id="reset">Standardwerte</button></div>`;
   a.querySelector('.back').onclick=()=>{UI.calc=null;render()};
   const upd=()=>{const v={};c.inputs.forEach(i=>{if(i.type==='dn')return;v[i.k]=i.type==='sel'?vals[i.k]:num(vals[i.k])});
-    let r;try{r=c.calc(v)}catch(e){r=null}
-    $('#res').innerHTML=r?`<div class="res"><div class="lbl">${r.lbl}</div><div class="big">${r.big[0]} <small>${r.big[1]}</small></div><table>${r.rows.map(x=>`<tr><td>${x[0]}</td><td>${x[1]}</td></tr>`).join('')}</table>${r.note?`<div class="note">${r.note}</div>`:''}</div>`:'<div class="res">Bitte Eingaben prüfen.</div>';lsSet('isopro_calc',calcVals)};
+    let r;try{r=c.calc(v,vals)}catch(e){r=null}
+    $('#res').innerHTML=r?`<div class="res"><div class="lbl">${r.lbl}</div><div class="big">${r.big[0]} <small>${r.big[1]}</small></div><table>${r.rows.map(x=>`<tr><td>${x[0]}</td><td>${x[1]}</td></tr>`).join('')}</table>${r.note?`<div class="note">${r.note}</div>`:''}${r.act?`<button class="btn full" id="ract" style="margin-top:10px">${r.act.label}</button>`:''}</div>`:'<div class="res">Bitte Eingaben prüfen.</div>';const ra=$('#ract');if(ra&&r&&r.act)ra.onclick=r.act.fn;lsSet('isopro_calc',calcVals)};
   a.querySelectorAll('[data-k]').forEach(e=>{e.addEventListener('input',()=>{vals[e.dataset.k]=e.value;upd()})});
   a.querySelectorAll('[data-dn]').forEach(e=>e.onchange=()=>{if(!e.value)return;const t=e.dataset.dn;vals[t]=e.value.replace('.',',');const inp=a.querySelector(`[data-k="${t}"]`);if(inp)inp.value=vals[t];upd()});
   $('#reset').onclick=()=>{delete calcVals[c.id];render()};
