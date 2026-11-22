@@ -1260,7 +1260,7 @@ const LEG=[
  ['A','R / E / I',/\bEI\s?\d|\bR\s?\d{2,3}\b/,'Feuerwiderstand: Tragfähigkeit / Raumabschluss / Wärmedämmung, Zahl = Minuten']
 ];
 let _legKey='',_legT=0;
-function legendUpdate(){const app=$('#app');if(!app)return;if(UI.tab==='projekte'){const o=app.querySelector('.autoleg');if(o)o.remove();_legKey='';return}let txt='';app.childNodes.forEach(n=>{if(!(n.classList&&n.classList.contains('autoleg')))txt+=' '+n.textContent});
+function legendUpdate(){const app=$('#app');if(!app)return;if(!['rechner','wissen'].includes(UI.tab)){const o=app.querySelector('.autoleg');if(o)o.remove();_legKey='';return}let txt='';app.childNodes.forEach(n=>{if(!(n.classList&&n.classList.contains('autoleg')))txt+=' '+n.textContent});
  const hit=LEG.filter(e=>e[2].test(txt));
  let codes=[];if(UI.tab==='iso'&&UI.idraw&&UI.iproj){const p=S.projects[UI.iproj];const d=p&&(p.iso||[]).find(x=>x.id===UI.idraw);if(d&&d.segs){codes=[...new Set([...fittings(d).map(f=>f.t),...d.syms.map(y=>y.type)])]}}
  const key=hit.map(e=>e[1]).join('|')+'#'+codes.join('|');const old=app.querySelector('.autoleg');
