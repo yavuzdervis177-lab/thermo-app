@@ -114,6 +114,15 @@ details.acc .in ul{padding-left:18px;margin:6px 0}
 .kpi div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
 .kpi b{display:block;font-size:18px}
 .kpi span{font-size:11px;color:var(--muted)}
+.sigbox{position:relative;border:1.5px dashed var(--line);border-radius:12px;background:#fff;height:190px;margin:4px 0 12px;touch-action:none}
+.sigbox canvas{width:100%;height:100%;display:block;touch-action:none;border-radius:12px}
+.sigx{position:absolute;left:0;right:0;bottom:44px;text-align:center;color:#9aa1a9;font-size:13px;pointer-events:none}
+.sigbox:after{content:'';position:absolute;left:16px;right:16px;bottom:36px;border-bottom:1px solid #c9cdd2;pointer-events:none}
+.sgrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}.sgrow:last-child{border-bottom:0}
+.sgrow img{height:34px;max-width:110px;object-fit:contain;background:#fff;border-radius:6px;padding:2px}
+.favs{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 12px}.favs button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:99px;padding:7px 12px;font:inherit;font-size:13px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.favs .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.bkban{border-left:3px solid var(--warn);background:var(--card);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13.5px}
 .warnbox{border-left:3px solid var(--warn);padding:8px 10px;background:var(--card);border-radius:8px;font-size:13px;color:var(--muted);margin-bottom:12px}
 nav#tabs button{font-size:10px;padding-left:0;padding-right:0}
 nav#tabs button svg{width:22px;height:22px}
@@ -491,7 +500,7 @@ function rProjekte(a){
   const list=all.filter(p=>(UI.filter==='Alle'||p.status===UI.filter)&&(!q||[p.name,p.kunde,p.ort].join(' ').toLowerCase().includes(q)));
   const offen=all.reduce((s,p)=>s+(p.aufgaben||[]).filter(t=>!t.done).length,0);
   const vol=all.filter(p=>p.status!=='Anfrage').reduce((s,p)=>s+netto(p),0);
-  a.innerHTML=`<div class="row" style="justify-content:space-between"><h2>Projekte</h2><button class="btn" id="np">+ Neu</button></div>
+  a.innerHTML=`<div class="row" style="justify-content:space-between"><h2>Projekte</h2><button class="btn" id="np">+ Neu</button></div>${bkBannerHTML()}
   <div class="kpi"><div><b>${all.filter(p=>p.status!=='Abgeschlossen').length}</b><span>laufend</span></div><div><b>${offen}</b><span>offene Aufgaben</span></div><div><b>${all.reduce((s,p)=>s+allPos(p).length,0)}</b><span>Positionen</span></div></div>
   <input class="search" placeholder="Suchen: Projekt, Kunde, Ort" value="${esc(UI.q)}" id="q">
   <div class="chips">${['Alle',...STATUS].map(s=>`<button class="${UI.filter===s?'on':''}" data-f="${s}">${s}</button>`).join('')}</div>
@@ -617,8 +626,40 @@ function aufmassText(p){let t=`AUFMASS – ${p.name}\n`;
   GEWERKE.forEach(g=>{const ps=allPos(p).filter(x=>x.gewerk===g);if(!ps.length)return;t+=`\n${g}:\n`;ps.forEach((x,i)=>{t+=`${i+1}. ${posTitle(x)}${x.mat?' – '+x.mat:''}${x.bez?' – '+x.bez:''}\n   ${fmt(num(x.menge),2)} ${x.einheit}\n`})});return t}
 function csv(p){const h=['Nr','Gewerk','Art','DN / Ø','Dämmdicke mm','Material','Bemerkung','Menge','Einheit'];const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';const f=n=>String(Math.round(n*100)/100).replace('.',',');
   return '﻿'+[h.join(';'),...allPos(p).map((x,i)=>[i+1,x.gewerk,x.art,x.dn,x.s,x.mat,x.bez,f(num(x.menge)),x.einheit].map(q).join(';'))].join('\r\n')}
+/* ---------- Einstellungen: Mitarbeiter & Favoriten ---------- */
+const PREF=Object.assign({ma:[],fav:[]},lsGet('thermo_prefs',{}));const prefSave=()=>lsSet('thermo_prefs',PREF);
+function maDatalist(){return `<datalist id="malist">${PREF.ma.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>`}
+/* ---------- Unterschriften ---------- */
+function trimSig(c){const x=c.getContext('2d');const {width:w,height:h}=c;const d=x.getImageData(0,0,w,h).data;let x0=w,y0=h,x1=-1,y1=-1;
+ for(let y=0;y<h;y+=2)for(let i=0;i<w;i+=2){if(d[(y*w+i)*4+3]>20){if(i<x0)x0=i;if(i>x1)x1=i;if(y<y0)y0=y;if(y>y1)y1=y}}
+ if(x1<0)return null;const pd=8;x0=Math.max(0,x0-pd);y0=Math.max(0,y0-pd);x1=Math.min(w,x1+pd);y1=Math.min(h,y1+pd);
+ const sc=Math.min(1,600/(x1-x0));const o=document.createElement('canvas');o.width=Math.round((x1-x0)*sc);o.height=Math.round((y1-y0)*sc);o.getContext('2d').drawImage(c,x0,y0,x1-x0,y1-y0,0,0,o.width,o.height);return o.toDataURL('image/png')}
+function sigPad(title,cur,cb){openSheet(`<h3 style="margin-top:0">✍️ ${esc(title)}</h3><label class="f"><span>Name in Druckschrift <em>(optional)</em></span><input id="sgn" value="${esc(cur&&cur.n||'')}" autocomplete="off"></label>
+ <div class="sigbox"><canvas id="sgc"></canvas><span class="sigx">Hier mit dem Finger unterschreiben</span></div>
+ <div class="row"><button class="btn" id="sgok">Übernehmen</button><button class="btn sec" id="sgclr">Neu</button>${cur?'<button class="btn bad" id="sgdel">Entfernen</button>':''}<button class="btn sec" id="sgx">Abbrechen</button></div>`,()=>{
+ const c=$('#sgc');let x=null,dr=false,any=false,last=null;
+ const init=()=>{const r=c.getBoundingClientRect();if(!r.width)return;const dpr=Math.min(2,window.devicePixelRatio||1);c.width=Math.round(r.width*dpr);c.height=Math.round(r.height*dpr);x=c.getContext('2d');x.scale(dpr,dpr);x.lineWidth=2.4;x.lineCap='round';x.lineJoin='round';x.strokeStyle=x.fillStyle='#10204a';any=false;$('.sigx').style.display=''};
+ setTimeout(init,40);const pt=e=>{const b=c.getBoundingClientRect();return[e.clientX-b.left,e.clientY-b.top]};
+ c.addEventListener('pointerdown',e=>{if(!x)init();if(!x)return;e.preventDefault();try{c.setPointerCapture(e.pointerId)}catch(_){}const ae=document.activeElement;if(ae&&ae.blur&&ae!==document.body)ae.blur();dr=true;last=pt(e);x.beginPath();x.arc(last[0],last[1],1.2,0,7);x.fill();any=true;$('.sigx').style.display='none'});
+ c.addEventListener('pointermove',e=>{if(!dr)return;e.preventDefault();const q=pt(e);x.beginPath();x.moveTo(last[0],last[1]);x.lineTo(q[0],q[1]);x.stroke();last=q});
+ const end=()=>{dr=false};c.addEventListener('pointerup',end);c.addEventListener('pointercancel',end);
+ $('#sgclr').onclick=()=>init();$('#sgx').onclick=()=>{closeSheet();cb(undefined)};
+ if($('#sgdel'))$('#sgdel').onclick=()=>{closeSheet();cb(null)};
+ $('#sgok').onclick=()=>{if(!any){toast('Bitte zuerst unterschreiben');return}const img=trimSig(c);if(!img){toast('Bitte zuerst unterschreiben');return}const v={img,d:today(),n:$('#sgn').value.trim()};closeSheet();cb(v)}})}
+function sigManage(title,entries,save){const draw=()=>openSheet(`<h3 style="margin-top:0">✍️ Unterschriften</h3><p class="note" style="margin-top:-6px">${esc(title)} – Unterschrift antippen, das Handy weitergeben, mit dem Finger unterschreiben. Erscheint im PDF.</p>
+ <div>${entries.map((e,i)=>{const v=e.get();return `<div class="sgrow"><div style="flex:1;min-width:0"><b>${esc(e.label)}</b><div class="note" style="margin:0">${v?'✓ '+dDE(v.d)+(v.n?' · '+esc(v.n):''):'noch nicht unterschrieben'}</div></div>${v?`<img src="${v.img}" alt="">`:''}<button class="btn ${v?'sec':''}" data-sg="${i}">${v?'Ändern':'Unterschreiben'}</button></div>`}).join('')}</div>
+ <div class="row" style="margin-top:10px"><button class="btn sec" onclick="closeSheet()">Fertig</button></div>`,()=>{
+  document.querySelectorAll('[data-sg]').forEach(b=>b.onclick=()=>{const e=entries[+b.dataset.sg];const cur=e.get();sigPad(e.label,cur,v=>{if(v!==undefined){e.set(v);save()}draw()})})});draw()}
+async function sigObj(o){if(!o||!o.img)return null;const im=await loadImg(o.img);return im?{im,d:o.d,n:o.n}:null}
+function drawSigImg(d,sg,x0,yTop,w,h){if(!sg||!sg.im)return;const r=Math.min(w/sg.im.naturalWidth,h/sg.im.naturalHeight);const iw=sg.im.naturalWidth*r,ih=sg.im.naturalHeight*r;d.ctx.drawImage(sg.im,x0,yTop+h-ih,iw,ih)}
+/* ---------- Datensicherung-Erinnerung ---------- */
+if(!lsGet('thermo_first',0))lsSet('thermo_first',Date.now());
+function bkBannerHTML(){const has=Object.keys(S.projects).length||Object.keys(ST.items).length;if(!has)return '';const last=lsGet('thermo_lastbk',0),ref=last||lsGet('thermo_first',Date.now());const days=Math.floor((Date.now()-ref)/864e5);
+ if(days<7||lsGet('thermo_bksnooze',0)>Date.now())return '';
+ return `<div class="bkban">💾 <b>${last?'Letzte Datensicherung vor '+days+' Tagen':'Noch keine Datensicherung'}</b><div class="note" style="margin:2px 0 8px">Alle Daten liegen nur auf diesem Handy. Eine Sicherung per Mail oder Google Drive schützt vor Verlust.</div><div class="row"><button class="btn" onclick="backupExport()">Jetzt sichern</button><button class="btn sec" onclick="lsSet('thermo_bksnooze',Date.now()+3*864e5);render()">Später</button></div></div>`}
 function aufmOf(p){if(!Array.isArray(p.aufm)){p.aufm=(p.pos&&p.pos.length)?[{id:uid(),name:'Aufmaß 1',datum:p.datum||today(),pos:p.pos}]:[];delete p.pos}p.aufm.forEach(x=>x.pos=x.pos||[]);return p.aufm}
 const allPos=p=>aufmOf(p).flatMap(x=>x.pos);
+const favLabel=f=>[f.art,f.dn,f.s?f.s+' mm':''].filter(Boolean).join(' · ');
 const aufmSorted=p=>aufmOf(p).slice().sort((a,b)=>(a.datum||'').localeCompare(b.datum||'')||0);
 function newAufm(p){const L=aufmOf(p);const A={id:uid(),name:'Aufmaß '+(L.length+1),datum:today(),pos:[]};L.push(A);return A}
 function aufmEdit(p,A){openSheet(`<h3 style="margin-top:0">Aufmaß bearbeiten</h3><div class="grid2"><label class="f"><span>Bezeichnung</span><input id="an_" value="${esc(A.name)}" autocomplete="off"></label><label class="f"><span>Datum</span><input type="date" id="ad_" value="${esc(A.datum||'')}"></label></div><div class="row"><button class="btn" id="ok">Speichern</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{$('#ok').onclick=()=>{A.name=$('#an_').value.trim()||A.name;A.datum=$('#ad_').value||A.datum;saveProject(p);closeSheet();render()}})}
@@ -643,20 +684,22 @@ function rAufmass(a){
   const groups=GEWERKE.map(g=>[g,A.pos.filter(x=>x.gewerk===g)]).filter(x=>x[1].length);
   a.innerHTML=`<button class="back">‹ Alle Aufmaße · ${esc(p.name)}</button><div class="row" style="align-items:center;justify-content:space-between;margin:2px 0 12px"><div><h2 style="margin:0">${esc(A.name)}</h2><div class="note" style="margin:0">${dDE(A.datum)}${p.kunde||p.ort?' · '+esc([p.kunde,p.ort].filter(Boolean).join(' · ')):''}</div></div><button class="btn sec" id="ae">✏️ Ändern</button></div>
   <button class="btn full" id="add" style="margin-bottom:12px">+ Position erfassen</button>
+  ${PREF.fav.length?`<div class="favs">${PREF.fav.map((f,i)=>`<button type="button" data-fv="${i}"><span class="dot" style="background:${GCOL[f.gewerk]||'#888'}"></span>⭐ ${esc(favLabel(f))}</button>`).join('')}</div>`:''}
   ${groups.length?groups.map(([g,ps])=>`<h3><span class="pill g-${g}">${g}</span> <span class="note">${ps.length} Position(en)</span></h3><div class="card">${ps.map(x=>swipeWrap(x.id,`<div class="pos" data-x="${x.id}"><div class="m"><div class="t">${esc(posTitle(x))}</div><div class="s">${esc([x.mat,x.bez].filter(Boolean).join(' · '))}</div></div><div class="p">${fmt(num(x.menge),num(x.menge)%1?2:0)} ${esc(x.einheit)}</div><button class="tbtn" data-delp="${x.id}" aria-label="Löschen" type="button">🗑</button></div>`,'swpos')).join('')}</div>`).join(''):'<div class="card empty">Noch keine Positionen erfasst.</div>'}
-  <div class="row"><button class="btn" id="apdf">📄 PDF: Aufmaß</button></div>
+  <div class="row"><button class="btn" id="apdf">📄 PDF: Aufmaß</button><button class="btn sec" id="asig">✍️ Unterschriften${A.sig&&(A.sig.ag||A.sig.an)?' ✓':''}</button></div>
   <p class="note">Nur dieses Aufmaß, ohne Preise. Das komplette PDF mit allen Aufmaßen, Isometrien und Fotos erstellst du im Projekt.</p>
 `;
   $('#apdf').onclick=()=>aufmassPdf(p,'aufmass',A).catch(e=>toast('PDF fehlgeschlagen'));
   a.querySelector('.back').onclick=()=>{UI.asheet=null;render()};$('#ae').onclick=()=>aufmEdit(p,A);
-  $('#add').onclick=()=>posForm(p,null,A);
+  $('#asig').onclick=()=>{A.sig=A.sig||{};sigManage(A.name+' · '+dDE(A.datum),[{label:'Auftraggeber',get:()=>A.sig.ag,set:v=>{if(v)A.sig.ag=v;else delete A.sig.ag}},{label:'Auftragnehmer',get:()=>A.sig.an,set:v=>{if(v)A.sig.an=v;else delete A.sig.an}}],()=>{saveProject(p);render()})};
+  $('#add').onclick=()=>posForm(p,null,A);a.querySelectorAll('[data-fv]').forEach(b=>b.onclick=()=>{const f=PREF.fav[+b.dataset.fv];if(f)posForm(p,null,A,f)});
   a.querySelectorAll('[data-x]').forEach(e=>e.onclick=ev=>{if(ev.target.closest('.tbtn'))return;posForm(p,A.pos.find(x=>x.id===e.dataset.x),A)});
   const delP=id=>{const i=A.pos.findIndex(x=>x.id===id);if(i<0)return;const old=A.pos[i];A.pos.splice(i,1);saveProject(p);render();undoToast('Position gelöscht',()=>{A.pos.splice(Math.min(i,A.pos.length),0,old);saveProject(p);render()})};
   a.querySelectorAll('.tbtn[data-delp]').forEach(b=>b.onclick=ev=>{ev.stopPropagation();delP(b.dataset.delp)});initSwipe(a,delP);
 }
 let lastPos=lsGet('isopro_lastpos',{gewerk:'Wärme',art:'Rohr',einheit:'lfm',mat:'',s:'',dn:'',ep:'',faktor:'1'});
-function posForm(p,x,A){A=A||aufmOf(p)[0]||newAufm(p);
-  const isNew=!x;const v=x?{...x}:{...lastPos,id:uid(),menge:'',bez:''};
+function posForm(p,x,A,tpl){A=A||aufmOf(p)[0]||newAufm(p);
+  const isNew=!x;const tp=tpl?{gewerk:tpl.gewerk,art:tpl.art,einheit:tpl.einheit,dn:tpl.dn||'',s:tpl.s||'',mat:tpl.mat||''}:{};const v=x?{...x}:{...lastPos,...tp,id:uid(),menge:'',bez:''};
   const dnOpts=`<option value="">– wählen –</option>${DN_STAHL.map(([n,d])=>`<option value="DN ${n} (${fmt(d,1)})">DN ${n} – ${fmt(d,1)} mm</option>`).join('')}${CU.map(d=>`<option value="Cu ${fmt(d,d%1?1:0)}">Cu ${fmt(d,d%1?1:0)} mm</option>`).join('')}`;
   openSheet(`<h3 style="margin-top:0">${isNew?'Neue Position':'Position bearbeiten'}</h3>
   <label class="f"><span>Gewerk</span><div class="chips" id="gw">${GEWERKE.map(g=>`<button type="button" data-g="${g}" class="${v.gewerk===g?'on':''}">${g}</button>`).join('')}</div></label>
@@ -672,7 +715,7 @@ function posForm(p,x,A){A=A||aufmOf(p)[0]||newAufm(p);
    <label class="f"><span>Menge</span><input id="f_menge" inputmode="decimal" value="${esc(v.menge)}"></label>
    <div></div>
   </div>
-  <div class="row"><button class="btn" id="sv">${isNew?'Hinzufügen':'Speichern'}</button>${isNew?'<button class="btn sec" id="sv2">+ Weitere</button>':'<button class="btn sec" id="dup">Duplizieren</button><button class="btn bad" id="rm">Löschen</button>'}<button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{
+  <div class="row"><button class="btn" id="sv">${isNew?'Hinzufügen':'Speichern'}</button>${isNew?'<button class="btn sec" id="sv2">+ Weitere</button>':'<button class="btn sec" id="dup">Duplizieren</button><button class="btn bad" id="rm">Löschen</button>'}<button class="btn sec" onclick="closeSheet()">Abbrechen</button></div><button class="btn sec full" id="fav" type="button" style="margin-top:8px">⭐ Als Favorit speichern</button>`,()=>{
     const F=k=>$('#f_'+k);
     document.querySelectorAll('#gw [data-g]').forEach(b=>b.onclick=()=>{v.gewerk=b.dataset.g;document.querySelectorAll('#gw [data-g]').forEach(c=>c.classList.toggle('on',c===b))});
     F('art').onchange=()=>{const u=(ARTEN.find(a=>a[0]===F('art').value)||[])[1];if(u)F('einheit').value=u};
@@ -682,6 +725,7 @@ function posForm(p,x,A){A=A||aufmOf(p)[0]||newAufm(p);
       lastPos={gewerk:v.gewerk,art:v.art,einheit:v.einheit,mat:v.mat,s:v.s,dn:v.dn,ep:v.ep,faktor:v.faktor};lsSet('isopro_lastpos',lastPos);
       saveProject(p);render();
       if(again){closeSheet();posForm(p,null,A);setTimeout(()=>$('#f_menge')&&$('#f_menge').focus(),60);toast('Position hinzugefügt')}else closeSheet()};
+    $('#fav').onclick=()=>{['art','einheit','dn','s','mat'].forEach(k=>v[k]=F(k).value.trim());const f={id:uid(),gewerk:v.gewerk,art:v.art,einheit:v.einheit,dn:v.dn,s:v.s,mat:v.mat};const key=g=>[g.gewerk,g.art,g.einheit,g.dn,g.s,g.mat].join('|');if(PREF.fav.some(g=>key(g)===key(f))){toast('Ist schon ein Favorit');return}PREF.fav.push(f);prefSave();toast('⭐ Favorit gespeichert: '+favLabel(f))};
     $('#sv').onclick=()=>commit(false);
     if($('#sv2'))$('#sv2').onclick=()=>commit(true);
     if($('#dup'))$('#dup').onclick=()=>{collect();A.pos.push({...v,id:uid()});saveProject(p);render();closeSheet();toast('Position dupliziert')};
@@ -1285,23 +1329,38 @@ function rEinst(a){const f=S.firma||{};
  <h3>Vorschau Briefkopf</h3><div class="card" id="lhp">${letterheadHTML()}</div>
  <h3>App aufs Handy</h3><div class="card">${STANDALONE?`<ol class="appsteps"><li>Diese Seite in <b>Chrome</b> geöffnet lassen</li><li>Oben rechts <b>⋮</b> → <b>„App installieren“</b> bzw. <b>„Zum Startbildschirm hinzufügen“</b></li><li>Bestätigen – das IsoPro-Icon liegt danach auf dem Startbildschirm</li></ol><p class="note">Die Daten werden nur auf diesem Handy gespeichert. Mit der Datensicherung unten kannst du sie auf ein anderes Handy übertragen.</p>`:`<ol class="appsteps"><li>Link kopieren und in <b>Chrome</b> öffnen</li><li>Bei claude.ai mit deinem Konto anmelden</li><li>Oben rechts <b>⋮</b> → <b>„Zum Startbildschirm hinzufügen“</b></li><li>Name „IsoPro“ → <b>Hinzufügen</b></li></ol>
  <button class="btn sec full" id="cplink" type="button">🔗 Link zur App kopieren</button><p class="note">In Chrome funktionieren auch Fotos und das Logo-Hochladen. Daten sind auf allen Geräten gleich.</p>`}</div>
+<h3>Mitarbeiter</h3><div class="card"><p class="note" style="margin-top:0">Einmal anlegen – im Stundennachweis nur noch auswählen.</p>
+ <div class="favs" style="margin:0 0 10px">${PREF.ma.map((n,i)=>`<button type="button" data-mx="${i}">${esc(n)} <span style="color:var(--muted)">✕</span></button>`).join('')||'<span class="note" style="margin:0">Noch keine Mitarbeiter.</span>'}</div>
+ <div class="row"><input id="maadd" placeholder="Name, z. B. Hans Becker" autocomplete="off" style="flex:1;min-width:0"><button class="btn" id="maaddb" type="button">+ Hinzufügen</button></div></div>
+ <h3>Favoriten im Aufmaß</h3><div class="card">${PREF.fav.length?PREF.fav.map((f,i)=>`<div class="sgrow"><div style="flex:1;min-width:0"><b>${esc(favLabel(f))}</b><div class="note" style="margin:0">${esc([f.gewerk,f.mat].filter(Boolean).join(' · '))}</div></div><button class="btn sec" data-fx="${i}" type="button">Entfernen</button></div>`).join(''):'<p class="note" style="margin:0">Noch keine Favoriten. Im Aufmaß bei einer Position „⭐ Als Favorit“ antippen.</p>'}</div>
 ${pinSettingsHTML()}
- <h3>Datensicherung</h3><div class="card"><p class="note" style="margin-top:0">Alle Projekte, Stundennachweise, Fotos und Firmendaten als eine Datei sichern – oder auf einem anderen Handy wieder einlesen.</p>
- <div class="row"><button class="btn sec" id="bkexp" type="button">💾 Sicherung speichern</button><label class="btn sec phlab">📂 Sicherung einlesen<input type="file" accept=".json,application/json" class="phin" id="bkimp"></label></div></div>`;
+ <h3>Datensicherung</h3><div class="card"><p class="note" style="margin-top:0">Alle Projekte, Stundennachweise, Fotos und Firmendaten als eine Datei sichern – oder auf einem anderen Handy wieder einlesen.<br><b>Letzte Sicherung: ${lsGet('thermo_lastbk',0)?dDE(new Date(lsGet('thermo_lastbk',0)).toISOString().slice(0,10)):'noch nie'}</b></p>
+ <div class="row"><button class="btn sec" id="bkexp" type="button">💾 Sicherung speichern</button><label class="btn sec phlab">📂 Sicherung einlesen<input type="file" accept=".json,.txt,application/json,text/plain" class="phin" id="bkimp"></label></div></div>`;
  a.querySelector('.back').onclick=()=>history.length>1?history.back():(location.hash='projekte');
  a.querySelectorAll('[data-fk]').forEach(i=>i.addEventListener('input',()=>{S.firma[i.dataset.fk]=i.value.trim();firmaSave();$('#lhp').innerHTML=letterheadHTML()}));
  $('#logoin').addEventListener('change',async e=>{const fl=e.target.files[0];e.target.value='';if(!fl)return;const du=await logoFromFile(fl);if(!du){toast('Logo konnte nicht verwendet werden');return}S.firma.logo=du;firmaSave();rEinst(a);toast('Logo gespeichert')});
  if($('#logorm'))$('#logorm').onclick=()=>{delete S.firma.logo;firmaSave();rEinst(a)};
  if($('#cplink'))$('#cplink').onclick=()=>copyText('https://claude.ai/artifact/Ejus3toQ6sxTCH72ERy3S3');
  if($('#pinset'))$('#pinset').onclick=()=>pinSheet('set');if($('#pinch'))$('#pinch').onclick=()=>pinSheet('ch');if($('#pinrm'))$('#pinrm').onclick=()=>pinSheet('rm');
+ const maAdd=()=>{const v=$('#maadd').value.trim();if(!v)return;if(!PREF.ma.includes(v)){PREF.ma.push(v);PREF.ma.sort((x,y)=>x.localeCompare(y,'de'));prefSave()}rEinst(a);setTimeout(()=>$('#maadd')&&$('#maadd').focus(),50)};
+ $('#maaddb').onclick=maAdd;$('#maadd').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();maAdd()}});
+ a.querySelectorAll('[data-mx]').forEach(b=>b.onclick=()=>{const n=PREF.ma[+b.dataset.mx];PREF.ma.splice(+b.dataset.mx,1);prefSave();rEinst(a);undoToast(n+' entfernt',()=>{PREF.ma.push(n);PREF.ma.sort((x,y)=>x.localeCompare(y,'de'));prefSave();rEinst(a)})});
+ a.querySelectorAll('[data-fx]').forEach(b=>b.onclick=()=>{PREF.fav.splice(+b.dataset.fx,1);prefSave();rEinst(a)});
  $('#bkexp').onclick=()=>backupExport();$('#bkimp').addEventListener('change',e=>{const f=e.target.files[0];e.target.value='';if(f)backupImport(f)})}
 async function imgToDataUrl(src){const im=await loadImg(src);if(!im)return null;try{const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;c.getContext('2d').drawImage(im,0,0);return c.toDataURL('image/jpeg',.85)}catch(e){return null}}
 function allPhotoIds(){const ids=new Set();Object.values(S.projects).forEach(p=>{(p.fotos||[]).forEach(f=>ids.add(f.id));(p.aufgaben||[]).forEach(t=>(t.fotos||[]).forEach(i=>ids.add(i)));(p.tagebuch||[]).forEach(t=>(t.fotos||[]).forEach(i=>ids.add(i)))});return [...ids]}
 async function backupExport(){toast('Sicherung wird erstellt …');const fotos={};for(const id of allPhotoIds()){const d=isLocalPh(id)?await phData(id):await imgToDataUrl('/_blob/'+id);if(d)fotos[id]=d}
  const firma={...S.firma};if(firma.logo&&!firma.logo.startsWith('data:')){const d=await imgToDataUrl(firma.logo);if(d)firma.logo=d}
- const data={app:'IsoPro',version:1,erstellt:new Date().toISOString(),projekte:S.projects,stunden:ST.items,firma,fotos};
- const name='IsoPro_Sicherung_'+today()+'.json';const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
- if(!(await saveFile(blob,name))){const url=URL.createObjectURL(blob);openSheet(`<h3 style="margin-top:0">Sicherung fertig</h3><p class="note">${fmt(blob.size/1024,0)} KB</p><a class="btn" href="${url}" download="${name}" target="_blank" rel="noopener">💾 Datei öffnen</a>`)}}
+ const data={app:'IsoPro',version:1,erstellt:new Date().toISOString(),projekte:S.projects,stunden:ST.items,firma,fotos,prefs:PREF};
+ const json=JSON.stringify(data);const name='IsoPro_Sicherung_'+today()+'.json';const blob=new Blob([json],{type:'application/json'});
+ let file=null;try{file=new File([json],'IsoPro_Sicherung_'+today()+'.txt',{type:'text/plain'})}catch(e){}
+ const canShare=!!(file&&navigator.share&&navigator.canShare&&navigator.canShare({files:[file]}));const done=()=>{lsSet('thermo_lastbk',Date.now());lsSet('thermo_bksnooze',0)};
+ const url=URL.createObjectURL(blob);
+ openSheet(`<h3 style="margin-top:0">Sicherung fertig</h3><p class="note">${Object.keys(S.projects).length} Projekte · ${Object.keys(ST.items).length} Stundennachweise · ${Object.keys(fotos).length} Fotos · ${fmt(blob.size/1024,0)} KB</p>
+ <div style="display:grid;gap:8px">${canShare?'<button class="btn" id="bsh">✉️ Per Mail / Google Drive senden</button>':''}<button class="btn ${canShare?'sec':''}" id="bsv">💾 Auf dem Handy speichern</button><a class="btn sec" style="text-decoration:none;text-align:center" id="bop" href="${url}" download="${name}" target="_blank" rel="noopener">📄 Datei öffnen</a><button class="btn sec" onclick="closeSheet()">Schließen</button></div>
+ <p class="note">Tipp: An die eigene Mail-Adresse schicken oder in Google Drive ablegen – dann ist alles sicher, auch wenn das Handy verloren geht. Einlesen unter ⚙ → „Sicherung einlesen“.</p>`,()=>{
+  if($('#bsh'))$('#bsh').onclick=async()=>{try{await navigator.share({files:[file],title:'IsoPro Sicherung '+dDE(today()),text:'IsoPro Datensicherung vom '+dDE(today())});done();toast('Sicherung geteilt');closeSheet();render()}catch(e){if(!e||e.name!=='AbortError')toast('Teilen nicht möglich – bitte speichern')}};
+  $('#bsv').onclick=async()=>{if(await saveFile(blob,name)){done();closeSheet();render()}};$('#bop').addEventListener('click',()=>done())})}
 async function backupImport(file){let data;try{data=JSON.parse(await file.text())}catch(e){toast('Datei ist keine gültige Sicherung');return}
  if(!data||!['IsoPro','Thermo Dämmtechnik'].includes(data.app)){toast('Datei ist keine IsoPro-Sicherung');return}
  const np=Object.keys(data.projekte||{}).length,ns=Object.keys(data.stunden||{}).length,nf=Object.keys(data.fotos||{}).length;
@@ -1310,7 +1369,8 @@ async function backupImport(file){let data;try{data=JSON.parse(await file.text()
   const mp=a=>(a||[]).map(i=>map[i]).filter(Boolean);
   Object.values(data.projekte||{}).forEach(p=>{S.deleted.delete(p.id);(p.fotos||[]).forEach(f=>f.id=map[f.id]);p.fotos=(p.fotos||[]).filter(f=>f.id);(p.aufgaben||[]).forEach(t=>t.fotos=mp(t.fotos));(p.tagebuch||[]).forEach(t=>t.fotos=mp(t.fotos));saveProject(p)});
   lsSet('isopro_deleted',[...S.deleted]);Object.values(data.stunden||{}).forEach(s=>{ST.deleted.delete(s.id);stSave(s)});lsSet('isopro_del_stunden',[...ST.deleted]);
-  if(data.firma&&(data.firma.firma||data.firma.logo)){S.firma=data.firma;firmaSave()}render();toast('Sicherung eingelesen')}})}
+  if(data.firma&&(data.firma.firma||data.firma.logo)){S.firma=data.firma;firmaSave()}
+  if(data.prefs){(data.prefs.ma||[]).forEach(n=>{if(!PREF.ma.includes(n))PREF.ma.push(n)});(data.prefs.fav||[]).forEach(f=>{if(!PREF.fav.some(g=>g.id===f.id))PREF.fav.push(f)});prefSave()}render();toast('Sicherung eingelesen')}})}
 /* Briefkopf & Fußzeile für PDFs (Einheiten pt) */
 function pdfLetterhead(x,W,M,logo){const f=S.firma||{};x.fillStyle='#d9541e';x.fillRect(0,0,W,6);if(!hasFirma())return M;
  let y=M-16;if(logo){const mh=42,mw=150;const s=Math.min(mh/logo.naturalHeight,mw/logo.naturalWidth);const w=logo.naturalWidth*s,hh=logo.naturalHeight*s;x.drawImage(logo,W-M-w,y,w,hh);y+=hh+11}else y+=12;
@@ -1378,6 +1438,19 @@ function rStunden(a){const s=UI.sheet&&ST.items[UI.sheet];if(s)return s.typ==='t
  a.querySelectorAll('[data-s]').forEach(e=>e.onclick=()=>{UI.sheet=e.dataset.s;render();window.scrollTo(0,0)});
  if($('#fpx'))$('#fpx').onclick=()=>{UI.stProj=null;render()};
  initSwipe(a,id=>askDelSheet(ST.items[id]))}
+function nextPeriodSheet(s){const n=JSON.parse(JSON.stringify(s));n.id=uid();n.created=Date.now();delete n.updated;delete n.sig;n.tage={};n.notiz='';(n.ma||[]).forEach(m=>{m.id=uid();m.h={};delete m.sig});
+ if(isWeek(s)){const m0=weekStart(s.woche);const nx=new Date(m0.getFullYear(),m0.getMonth(),m0.getDate()+7);n.woche=isoWeek(nx);n.monat=ymd(nx).slice(0,7)}else{const [y,mo]=s.monat.split('-').map(Number);const nx=new Date(y,mo,1);n.monat=ymd(nx).slice(0,7)}
+ stSave(n);UI.sheet=n.id;render();window.scrollTo(0,0);toast('Neuer Nachweis: '+perLabel(n))}
+function sheetSigs(s){s.sig=s.sig||{};const ent=[];const E=(label,o,k)=>ent.push({label,get:()=>o[k],set:v=>{if(v)o[k]=v;else delete o[k]}});
+ if(s.typ==='team')(s.ma||[]).filter(m=>m.name).forEach(m=>E(m.name,m,'sig'));else E('Mitarbeiter'+(s.name?' – '+s.name:''),s.sig,'ma');
+ E('Auftragnehmer',s.sig,'an');E('Auftraggeber',s.sig,'ag');sigManage(sheetTitle(s)+' · '+perLabel(s),ent,()=>{stSave(s);render()})}
+const hasSig=s=>!!(s.sig&&(s.sig.ma||s.sig.an||s.sig.ag))||(s.ma||[]).some(m=>m.sig);
+function maPicker(s){const have=new Set((s.ma||[]).map(m=>m.name));const free=PREF.ma.filter(n=>!have.has(n));
+ if(!free.length){s.ma.push({id:uid(),name:'',h:{}});stSave(s);render();setTimeout(()=>{const l=[...document.querySelectorAll('[data-n]')].pop();if(l)l.focus()},60);return}
+ openSheet(`<h3 style="margin-top:0">Mitarbeiter hinzufügen</h3><div>${free.map((n,i)=>`<label class="chk"><input type="checkbox" data-pk="${i}"><span>${esc(n)}</span></label>`).join('')}</div>
+ <div class="row" style="margin-top:8px"><button class="btn" id="ok">Übernehmen</button><button class="btn sec" id="empty">+ Leere Zeile</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div><p class="note">Mitarbeiter verwalten unter ⚙ Einstellungen.</p>`,()=>{
+  $('#ok').onclick=()=>{const sel=[...document.querySelectorAll('[data-pk]:checked')].map(c=>free[+c.dataset.pk]);if(!sel.length){toast('Bitte Mitarbeiter wählen');return}s.ma=s.ma.filter(m=>m.name||Object.keys(m.h||{}).length);sel.forEach(n=>s.ma.push({id:uid(),name:n,h:{}}));stSave(s);closeSheet();render()};
+  $('#empty').onclick=()=>{s.ma.push({id:uid(),name:'',h:{}});stSave(s);closeSheet();render();setTimeout(()=>{const l=[...document.querySelectorAll('[data-n]')].pop();if(l)l.focus()},60)}})}
 function askDelSheet(s){if(!s)return;openSheet(`<h3>Stundennachweis „${esc(sheetTitle(s))}“ (${perLabel(s)}) löschen?</h3><p class="note">Wird endgültig entfernt.</p><div class="row"><button class="btn bad" id="y">Endgültig löschen</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{$('#y').onclick=()=>{closeSheet();stDelete(s.id);if(UI.sheet===s.id)UI.sheet=null;render();toast('Stundennachweis gelöscht')}})}
 function sheetHead(s,extra){const projOpts=Object.values(S.projects).sort((x,y)=>(y.updated||0)-(x.updated||0)).map(p=>`<option value="${p.id}" ${s.projId===p.id?'selected':''}>${esc(p.name)}</option>`).join('');
  return `<button class="back">‹ Stundennachweise</button><h2 style="margin-bottom:10px">${s.typ==='team'?'👥 Mehrere Mitarbeiter':'👤 Einzelperson'}</h2>
@@ -1396,8 +1469,8 @@ function rEinzel(a,s){s.tage=s.tage||{};const days=perDays(s),wk=isWeek(s);
  const rows=[];for(const x of days){const d=x.k,w=x.w;const r=s.tage[d]||{};rows.push(`<div class="drow${w===0||w===6?' we':''}" data-d="${d}"><div class="dd"><b>${WTAG[w]}</b>${p2(x.d)}.${wk?p2(x.dt.getMonth()+1)+'.':''}</div>
   <input type="time" data-k="von" value="${esc(r.von||'')}" aria-label="Beginn"><input type="time" data-k="bis" value="${esc(r.bis||'')}" aria-label="Ende"><input data-k="pause" inputmode="numeric" value="${esc(r.pause||'')}" placeholder="0" aria-label="Pause"><input data-k="std" inputmode="decimal" value="${esc(r.von&&r.bis?fh(dayStd(r)):(r.std||''))}" placeholder="–" aria-label="Stunden">
   <input class="dtx" data-k="taet" value="${esc(r.taet||'')}" placeholder="Tätigkeit / Baustelle" autocomplete="off"></div>`)}
- a.innerHTML=sheetHead(s,`<label class="f" style="grid-column:1/-1"><span>Name Mitarbeiter</span><input data-sf="name" value="${esc(s.name)}" autocomplete="off"></label>`)+`
- <div class="row" style="margin:4px 0 10px"><button class="btn sec" id="fill">Mo–Fr füllen …</button><button class="btn" id="spdf">📄 PDF</button></div>
+ a.innerHTML=sheetHead(s,`<label class="f" style="grid-column:1/-1"><span>Name Mitarbeiter</span><input data-sf="name" list="malist" value="${esc(s.name)}" autocomplete="off">${maDatalist()}</label>`)+`
+ <div class="row" style="margin:4px 0 10px;flex-wrap:wrap"><button class="btn sec" id="fill">Mo–Fr füllen …</button><button class="btn sec" id="ssig">✍️ Unterschriften${hasSig(s)?' ✓':''}</button><button class="btn sec" id="snext">⧉ ${isWeek(s)?'Nächste Woche':'Nächster Monat'}</button><button class="btn" id="spdf">📄 PDF</button></div>
  <div class="card" style="padding:8px 10px"><div class="dhead"><span>Tag</span><span>Beginn</span><span>Ende</span><span>Pause min</span><span>Std.</span></div>${rows.join('')}
  <div class="dsum">Summe ${perLabel(s)}: <b id="tot">${fh(sumEinzel(s))||0} Std.</b></div></div>
  <label class="f"><span>Bemerkung</span><textarea data-sf="notiz">${esc(s.notiz||'')}</textarea></label>`;
@@ -1406,15 +1479,15 @@ function rEinzel(a,s){s.tage=s.tage||{};const days=perDays(s),wk=isWeek(s);
    if(inp.dataset.k!=='std'&&inp.dataset.k!=='taet'&&r.von&&r.bis){row.querySelector('[data-k="std"]').value=fh(dayStd(r));r.std=String(dayStd(r))}
    if(!r.von&&!r.bis&&!r.std&&!r.taet&&!r.pause)delete s.tage[d];stSave(s);$('#tot').textContent=(fh(sumEinzel(s))||0)+' Std.'}))});
  $('#fill').onclick=()=>openSheet(`<h3 style="margin-top:0">Mo–Fr automatisch füllen</h3><p class="note">Füllt nur leere Arbeitstage.</p><div class="grid2"><label class="f"><span>Beginn</span><input type="time" id="fv" value="07:00"></label><label class="f"><span>Ende</span><input type="time" id="fb" value="16:00"></label><label class="f"><span>Pause (min)</span><input id="fp" inputmode="numeric" value="60"></label><label class="f"><span>Tätigkeit</span><input id="ft" value="${esc(s.baustelle||'')}"></label></div><div class="row"><button class="btn" id="ok">Füllen</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{$('#ok').onclick=()=>{for(const x of days){const d=x.k,w=x.w;if(w===0||w===6||s.tage[d])continue;const r={von:$('#fv').value,bis:$('#fb').value,pause:$('#fp').value,taet:$('#ft').value.trim()};r.std=String(dayStd(r));s.tage[d]=r}stSave(s);closeSheet();render()}});
- $('#spdf').onclick=()=>stundenPdf(s).catch(()=>toast('PDF fehlgeschlagen'))}
+ $('#spdf').onclick=()=>stundenPdf(s).catch(()=>toast('PDF fehlgeschlagen'));$('#ssig').onclick=()=>sheetSigs(s);$('#snext').onclick=()=>nextPeriodSheet(s)}
 function rTeam(a,s){s.ma=s.ma||[];const days=perDays(s),wk=isWeek(s);
  const dh=days.map(x=>`<th class="${x.w===0||x.w===6?'we':''}">${wk?p2(x.d)+'.'+p2(x.dt.getMonth()+1)+'.':x.d}<small>${WTAG[x.w]}</small></th>`);
  a.innerHTML=sheetHead(s,`<label class="f" style="grid-column:1/-1"><span>Bezeichnung</span><input data-sf="titel" value="${esc(s.titel)}" placeholder="z. B. Kolonne Müller" autocomplete="off"></label>`)+`
- <div class="row" style="margin:4px 0 10px"><button class="btn sec" id="addm">+ Mitarbeiter</button><button class="btn sec" id="fill">Mo–Fr füllen …</button><button class="btn" id="spdf">📄 PDF</button></div>
+ <div class="row" style="margin:4px 0 10px;flex-wrap:wrap"><button class="btn sec" id="addm">+ Mitarbeiter</button><button class="btn sec" id="fill">Mo–Fr füllen …</button><button class="btn sec" id="ssig">✍️ Unterschriften${hasSig(s)?' ✓':''}</button><button class="btn sec" id="snext">⧉ ${isWeek(s)?'Nächste Woche':'Nächster Monat'}</button><button class="btn" id="spdf">📄 PDF</button></div>
  <div class="card" style="padding:0"><div class="tgrid"><table><thead><tr><th class="nm">Name</th>${dh.join('')}<th class="sm">Σ</th></tr></thead><tbody>
- ${s.ma.map(m=>`<tr data-m="${m.id}"><td class="nm"><input data-n value="${esc(m.name)}" placeholder="Name" autocomplete="off"><button class="mdel" data-md="${m.id}" aria-label="Mitarbeiter löschen" type="button">×</button></td>${days.map(x=>{const d=x.k,w=x.w;return `<td class="${w===0||w===6?'we':''}"><input data-d="${d}" inputmode="decimal" value="${esc((m.h||{})[d]||'')}"></td>`}).join('')}<td class="sm" data-sum>${fh(sumMa(m,s))}</td></tr>`).join('')}
+ ${s.ma.map(m=>`<tr data-m="${m.id}"><td class="nm"><input data-n list="malist" value="${esc(m.name)}" placeholder="Name" autocomplete="off"><button class="mdel" data-md="${m.id}" aria-label="Mitarbeiter löschen" type="button">×</button></td>${days.map(x=>{const d=x.k,w=x.w;return `<td class="${w===0||w===6?'we':''}"><input data-d="${d}" inputmode="decimal" value="${esc((m.h||{})[d]||'')}"></td>`}).join('')}<td class="sm" data-sum>${fh(sumMa(m,s))}</td></tr>`).join('')}
  </tbody><tfoot><tr><td class="nm"><b>Summe</b></td>${days.map(x=>`<td data-ds="${x.k}">${fh(s.ma.reduce((t,m)=>t+num((m.h||{})[x.k]),0))}</td>`).join('')}<td class="sm" id="tot">${fh(sumTeam(s))}</td></tr></tfoot></table></div></div>
- <p class="note">Seitlich wischen, um alle Tage zu sehen. Stunden je Tag eintragen (z. B. 8 oder 7,5). Mitarbeiter mit × entfernen.</p>
+ ${maDatalist()}<p class="note">Seitlich wischen, um alle Tage zu sehen. Stunden je Tag eintragen (z. B. 8 oder 7,5). Mitarbeiter mit × entfernen.</p>
  <label class="f"><span>Bemerkung</span><textarea data-sf="notiz">${esc(s.notiz||'')}</textarea></label>`;
  bindHead(a,s);
  const upd=()=>{a.querySelectorAll('tr[data-m]').forEach(tr=>{const m=s.ma.find(x=>x.id===tr.dataset.m);if(m)tr.querySelector('[data-sum]').textContent=fh(sumMa(m,s))});a.querySelectorAll('[data-ds]').forEach(td=>{const d=td.dataset.ds;td.textContent=fh(s.ma.reduce((t,m)=>t+num((m.h||{})[d]),0))});$('#tot').textContent=fh(sumTeam(s))};
@@ -1422,18 +1495,18 @@ function rTeam(a,s){s.ma=s.ma||[];const days=perDays(s),wk=isWeek(s);
   tr.querySelector('[data-n]').addEventListener('input',e=>{m.name=e.target.value;stSave(s)});
   tr.querySelectorAll('[data-d]').forEach(inp=>inp.addEventListener('input',()=>{const v=inp.value.trim();if(v)m.h[inp.dataset.d]=v;else delete m.h[inp.dataset.d];stSave(s);upd()}))});
  a.querySelectorAll('[data-md]').forEach(b=>b.onclick=()=>{const i=s.ma.findIndex(x=>x.id===b.dataset.md);if(i<0)return;const old=s.ma[i];s.ma.splice(i,1);stSave(s);render();undoToast('Mitarbeiter entfernt',()=>{s.ma.splice(i,0,old);stSave(s);render()})});
- $('#addm').onclick=()=>{s.ma.push({id:uid(),name:'',h:{}});stSave(s);render();setTimeout(()=>{const l=[...a.querySelectorAll('[data-n]')].pop();if(l)l.focus()},60)};
+ $('#addm').onclick=()=>maPicker(s);
  $('#fill').onclick=()=>openSheet(`<h3 style="margin-top:0">Mo–Fr automatisch füllen</h3><p class="note">Trägt bei allen Mitarbeitern in leere Arbeitstage ein.</p><label class="f"><span>Stunden pro Tag</span><input id="fs" inputmode="decimal" value="8"></label><div class="row"><button class="btn" id="ok">Füllen</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{$('#ok').onclick=()=>{const v=$('#fs').value.trim();if(!num(v))return;s.ma.forEach(m=>{m.h=m.h||{};for(const x of days){const d=x.k,w=x.w;if(w===0||w===6||m.h[d])continue;m.h[d]=v}});stSave(s);closeSheet();render()}});
- $('#spdf').onclick=()=>stundenPdf(s).catch(()=>toast('PDF fehlgeschlagen'))}
+ $('#spdf').onclick=()=>stundenPdf(s).catch(()=>toast('PDF fehlgeschlagen'));$('#ssig').onclick=()=>sheetSigs(s);$('#snext').onclick=()=>nextPeriodSheet(s)}
 /* PDF */
-function sigLines(d,labels){const M=d.M,W=d.W;const gap=24,w=(W-2*M-gap*(labels.length-1))/labels.length;d.need(70);d.y+=34;
- labels.forEach((l,i)=>{const x0=M+i*(w+gap);d.line(x0,d.y,x0+w,d.y,'#1d2228',.8);d.text('Datum, Unterschrift',x0,d.y+10,{size:7,color:'#69707a'});d.text(l,x0,d.y+20,{size:8.5,bold:true})});d.y+=30}
+function sigLines(d,labels,sigs){sigs=sigs||[];const M=d.M,W=d.W;const gap=24,w=(W-2*M-gap*(labels.length-1))/labels.length;d.need(76);d.y+=38;
+ labels.forEach((l,i)=>{const x0=M+i*(w+gap);const sg=sigs[i];if(sg)drawSigImg(d,sg,x0+4,d.y-36,w-8,34);d.line(x0,d.y,x0+w,d.y,'#1d2228',.8);d.text(sg?dDE(sg.d)+(sg.n?' · '+sg.n:''):'Datum, Unterschrift',x0,d.y+10,{size:7,color:sg?'#1d2228':'#69707a'});d.text(l,x0,d.y+20,{size:8.5,bold:true})});d.y+=30}
 function stInfo(d,s,title){const p=s.projId&&S.projects[s.projId];const M=d.M,W=d.W;const ty=pdfLetterhead(d.ctx,W,M,d.logo);
  d.text(title,M,ty,{size:18,bold:true});d.text(perLabel(s),W-M,ty,{size:12,bold:true,color:'#d9541e',align:'right'});d.y=ty+14;
  const info=[[s.typ==='team'?'Bezeichnung':'Mitarbeiter',sheetTitle(s)],[isWeek(s)?'Woche':'Monat',perLabel(s)],['Projekt',p?p.name:'–'],['Baustelle',s.baustelle||'–'],['Auftraggeber',s.auftraggeber||'–'],['Stunden gesamt',(fh(sheetTotal(s))||'0')+' Std.']];
  const cols=d.land?6:3,colW=(W-2*M)/cols,rows=Math.ceil(info.length/cols),RH=30,bh=rows*RH+8;d.rect(M,d.y,W-2*M,bh,'#f4f2ee');
  info.forEach((it,i)=>{const cx=M+10+(i%cols)*colW,cy=d.y+15+Math.floor(i/cols)*RH;d.text(it[0].toUpperCase(),cx,cy,{size:6.5,color:'#69707a',bold:true});let t=d.wrap(it[1],colW-14,9,true)[0]||'';d.text(t,cx,cy+12,{size:9,bold:true})});d.y+=bh+14}
-async function stundenPdfPages(s,logo){const team=s.typ==='team';const d=PdfDoc(team);d.logo=logo;d.newPage();const M=d.M,W=d.W;const days=perDays(s),n=days.length,wk=isWeek(s);
+async function stundenPdfPages(s,logo){const team=s.typ==='team';const sg=s.sig||{};const SGa=[await sigObj(sg.ma),await sigObj(sg.an),await sigObj(sg.ag)];const SGm={};for(const m of (s.ma||[]))SGm[m.id]=await sigObj(m.sig);const d=PdfDoc(team);d.logo=logo;d.newPage();const M=d.M,W=d.W;const days=perDays(s),n=days.length,wk=isWeek(s);
  stInfo(d,s,'Stundennachweis');
  if(!team){const cols=[['Datum',48,'l'],['Tag',26,'l'],['Beginn',44,'r'],['Ende',44,'r'],['Pause',40,'r'],['Stunden',48,'r'],['Tätigkeit / Baustelle',0,'l']];cols[6][1]=W-2*M-cols.reduce((t,c)=>t+c[1],0);
   const head=()=>{d.rect(M,d.y,W-2*M,15,'#1d2228');let cx=M;cols.forEach(c=>{d.text(c[0],c[2]==='r'?cx+c[1]-4:cx+4,d.y+10.5,{size:7.5,bold:true,color:'#fff',align:c[2]==='r'?'right':'left'});cx+=c[1]});d.y+=15};
@@ -1444,7 +1517,7 @@ async function stundenPdfPages(s,logo){const team=s.typ==='team';const d=PdfDoc(
    d.y+=rh;d.line(M,d.y,W-M,d.y)}
   d.onNewPage=null;d.rect(M,d.y,W-2*M,17,'#f4f2ee');d.text('Summe',M+4,d.y+12,{size:9,bold:true});const sx=M+cols.slice(0,6).reduce((t,c)=>t+c[1],0);d.text((fh(sumEinzel(s))||'0')+' Std.',sx-4,d.y+12,{size:9.5,bold:true,align:'right'});d.y+=22;
   if(s.notiz){d.need(30);d.text('Bemerkung: ',M,d.y+8,{size:8.5,bold:true});d.wrap(s.notiz,W-2*M-60,8.5).forEach((l,i)=>{d.text(l,M+58,d.y+8,{size:8.5});d.y+=11})}
-  sigLines(d,['Mitarbeiter','Auftragnehmer','Auftraggeber'])}
+  sigLines(d,['Mitarbeiter','Auftragnehmer','Auftraggeber'],SGa)}
  else{const nameW=118,sumW=36,sigW=96;const dayW=(W-2*M-nameW-sumW-sigW)/n;const rh=19;
   const head=()=>{d.rect(M,d.y,W-2*M,22,'#1d2228');d.text('Name',M+4,d.y+14,{size:7.5,bold:true,color:'#fff'});for(let i=1;i<=n;i++){const X=days[i-1],w=X.w;const x0=M+nameW+(i-1)*dayW;if(w===0||w===6)d.rect(x0,d.y,dayW,22,'#3a4048');d.text(wk?p2(X.d)+'.'+p2(X.dt.getMonth()+1)+'.':String(X.d),x0+dayW/2,d.y+10,{size:7,bold:true,color:'#fff',align:'center'});d.text(WTAG[w],x0+dayW/2,d.y+18.5,{size:5.5,color:'#cfd3d8',align:'center'})}
    d.text('Σ',M+nameW+n*dayW+sumW/2,d.y+14,{size:8,bold:true,color:'#fff',align:'center'});d.text('Unterschrift',M+nameW+n*dayW+sumW+4,d.y+14,{size:7.5,bold:true,color:'#fff'});d.y+=22};
@@ -1453,12 +1526,12 @@ async function stundenPdfPages(s,logo){const team=s.typ==='team';const d=PdfDoc(
   ma.forEach((m,ri)=>{d.need(rh);const y0=d.y;for(let i=1;i<=n;i++){const w=days[i-1].w;if(w===0||w===6)d.rect(M+nameW+(i-1)*dayW,y0,dayW,rh,'#eeebe5')}
    let nm=m.name||'–';d.font(8.5,'bold');while(nm.length>2&&d.ctx.measureText(nm).width>nameW-8)nm=nm.slice(0,-2)+'…';d.text(nm,M+4,y0+12.5,{size:8.5,bold:true});
    for(let i=1;i<=n;i++){const v=(m.h||{})[days[i-1].k];if(v)d.text(fh(num(v))||v,M+nameW+(i-1)*dayW+dayW/2,y0+12.5,{size:7,align:'center'})}
-   d.text(fh(sumMa(m,s)),M+nameW+n*dayW+sumW/2,y0+12.5,{size:8,bold:true,align:'center'});grid(y0,rh);d.y+=rh;d.line(M,d.y,W-M,d.y)});
+   d.text(fh(sumMa(m,s)),M+nameW+n*dayW+sumW/2,y0+12.5,{size:8,bold:true,align:'center'});if(SGm[m.id])drawSigImg(d,SGm[m.id],M+nameW+n*dayW+sumW+4,y0+1.5,sigW-8,rh-3);grid(y0,rh);d.y+=rh;d.line(M,d.y,W-M,d.y)});
   d.onNewPage=null;d.need(rh);const y0=d.y;d.rect(M,y0,W-2*M,rh,'#f4f2ee');d.text('Summe',M+4,y0+12.5,{size:8.5,bold:true});
   for(let i=1;i<=n;i++){const t=ma.reduce((a,m)=>a+num((m.h||{})[days[i-1].k]),0);if(t)d.text(fh(t),M+nameW+(i-1)*dayW+dayW/2,y0+12.5,{size:6.5,bold:true,align:'center'})}
   d.text(fh(sumTeam(s)),M+nameW+n*dayW+sumW/2,y0+12.5,{size:8,bold:true,align:'center'});grid(y0,rh);d.y+=rh+6;
   if(s.notiz){d.need(24);d.text('Bemerkung: '+s.notiz.replace(/\n/g,' '),M,d.y+8,{size:8.5});d.y+=14}
-  sigLines(d,['Auftragnehmer','Auftraggeber'])}
+  sigLines(d,['Auftragnehmer','Auftraggeber'],[SGa[1],SGa[2]])}
  return d.pages.map(c=>({c,land:team,lbl:`Stundennachweis ${sheetTitle(s)} · ${perLabel(s)}`}))}
 async function stundenPdf(s){toast('PDF wird erstellt …');const logo=await loadImg((S.firma||{}).logo);const pages=await stundenPdfPages(s,logo);
  pages.forEach((pg,i)=>{const x=pg.c.getContext('2d');x.setTransform(PXS,0,0,PXS,0,0);const PW=pg.land?PDFH:PDFW,PH=pg.land?PDFW:PDFH;pdfFooter(x,PW,PH,40,pg.lbl,i,pages.length)});
@@ -1521,18 +1594,20 @@ async function aufmassPdf(p,mode='full',A){const full=mode==='full';toast('PDF w
  const head=(cs)=>{d.rect(M,d.y,W-2*M,16,'#1d2228');let cx=M;cs.forEach(c=>{d.text(c[0],c[2]==='r'?cx+c[1]-4:cx+4,d.y+11,{size:7.5,bold:true,color:'#fff',align:c[2]==='r'?'right':'left'});cx+=c[1]});d.y+=16};
  const row=(cs,vals,i,bold)=>{const lines=d.wrap(vals[1],cs[1][1]-8,8.5);const rh=Math.max(15,lines.length*10.5+5);d.need(rh);if(i%2)d.rect(M,d.y,W-2*M,rh,'#f7f6f3');
   let cx=M;cs.forEach((c,ci)=>{if(ci===1)lines.forEach((l,li)=>d.text(l,cx+4,d.y+11+li*10.5,{size:8.5,bold}));else d.text(vals[ci],c[2]==='r'?cx+c[1]-4:cx+4,d.y+11,{size:8.5,bold:bold||ci===4,align:c[2]==='r'?'right':'left'});cx+=c[1]});d.y+=rh;d.line(M,d.y,W-M,d.y)};
+ const SG={};for(const S0 of sheets){const g=S0.sig||{};SG[S0.id]=[await sigObj(g.ag),await sigObj(g.an)]}
  if(!pos.length){d.text('Keine Positionen erfasst.',M,d.y+10,{size:9,color:'#69707a'});d.y+=24}
  sheets.forEach(S0=>{let nr=0;if(full){d.need(80);d.rect(M,d.y,W-2*M,20,'#f4f2ee');d.text(S0.name,M+8,d.y+14,{size:11,bold:true});d.text(dDE(S0.datum)+' · '+S0.pos.length+' Position(en)',W-M-8,d.y+14,{size:9,color:'#69707a',align:'right'});d.y+=28}
  GEWERKE.forEach(g=>{const ps=S0.pos.filter(x=>x.gewerk===g);if(!ps.length)return;
   d.need(60);d.rect(M,d.y,4,16,GCOL[g]);d.text(g,M+10,d.y+12,{size:11,bold:true,color:GCOL[g]});d.y+=22;head(cols);
   d.onNewPage=()=>{d.text((full?S0.name+' · ':'')+g+' (Fortsetzung)',M,d.y+10,{size:9,bold:true,color:GCOL[g]});d.y+=16;head(cols)};
   ps.forEach((x,i)=>{nr++;row(cols,[String(nr),[x.art,x.mat,x.bez].filter(Boolean).join(' – '),x.dn||'',x.s||'',fmt(num(x.menge),num(x.menge)%1?2:0),x.einheit||''],i)});
-  d.onNewPage=null;d.y+=14});d.y+=4});
+  d.onNewPage=null;d.y+=14});if(full&&SG[S0.id].some(Boolean)){sigLines(d,['Auftraggeber','Auftragnehmer'],SG[S0.id]);d.y+=6}d.y+=4});
  // Zusammenfassung der Mengen
  if(pos.length){const sum={};pos.forEach(x=>{const k=[x.gewerk,x.art,x.dn||'',x.s||'',x.einheit||''].join('|');(sum[k]=sum[k]||{g:x.gewerk,art:x.art,dn:x.dn||'',s:x.s||'',e:x.einheit||'',m:0}).m+=num(x.menge)});
   const sc=[['',24,'l'],['Gewerk / Art',0,'l'],['DN / Ø',70,'l'],['Dämmd. mm',56,'r'],['Menge',60,'r'],['Einheit',44,'l']];sc[1][1]=cols[1][1];
   d.need(70);d.text('Zusammenfassung der Mengen'+(sheets.length>1?' (alle Aufmaße)':''),M,d.y+4,{size:12,bold:true});d.y+=10;d.line(M,d.y,W-M,d.y,'#1d2228',.8);d.y+=8;head(sc);
   d.onNewPage=()=>{head(sc)};Object.values(sum).forEach((s,i)=>row(sc,['',s.g+' – '+s.art,s.dn,s.s,fmt(s.m,s.m%1?2:0),s.e],i));d.onNewPage=null;d.y+=16}
+ if(!full&&sheets[0])sigLines(d,['Auftraggeber','Auftragnehmer'],SG[sheets[0].id]);
  const sect=(t)=>{d.need(40);d.text(t,M,d.y+4,{size:12,bold:true});d.y+=10;d.line(M,d.y,W-M,d.y,'#1d2228',.8);d.y+=12};
  if(full&&(p.aufgaben||[]).length){sect('Aufgaben & Mängel');p.aufgaben.forEach(t=>{const ls=d.wrap(t.t,W-2*M-24,9);d.need(ls.length*12+4);d.text(t.done?'☑':'☐',M,d.y,{size:10,color:t.done?'#2e7d4f':'#1d2228'});ls.forEach((l,i)=>d.text(l,M+16,d.y+i*12,{size:9,color:t.done?'#69707a':'#1d2228'}));d.y+=ls.length*12+4});d.y+=8}
  if(full&&(p.tagebuch||[]).length){sect('Bautagebuch');p.tagebuch.slice().sort((a,b)=>(a.d||'').localeCompare(b.d||'')).forEach(e=>{const ls=d.wrap(e.t||'–',W-2*M-70,9);d.need(ls.length*12+6);d.text(dDE(e.d),M,d.y,{size:9,bold:true});ls.forEach((l,i)=>d.text(l,M+70,d.y+i*12,{size:9}));d.y+=ls.length*12+6});d.y+=8}
