@@ -1,4 +1,4 @@
-# Thermo Dämmtechnik – App
+# IsoPro – App für Thermo Dämmtechnik GmbH
 
 Aufmaß, Isometrie, Stundennachweis und Projektdokumentation für Wärme-, Kälte-, Schall- und Brandschutz.
 

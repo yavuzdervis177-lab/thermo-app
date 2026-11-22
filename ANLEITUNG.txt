@@ -6,7 +6,7 @@ INHALT DIESES ORDNERS
   logo.png                Firmenlogo
   manifest.webmanifest    App-Beschreibung (Name, Icon) für die Installation
   sw.js                   sorgt dafür, dass die App auch ohne Internet startet
-  icon-*.png              App-Icons (TD-Zeichen)
+  icon-*.png              App-Icons (Kreis Wärme · Kälte · Schall · Brand)
   build.py                nur für Änderungen durch Claude – wird nicht gebraucht
 
 1) AUF DIE WEBSEITE HOCHLADEN (einmalig, z. B. durch euren Webmaster)
@@ -19,7 +19,7 @@ INHALT DIESES ORDNERS
   - In Chrome die Adresse öffnen, z. B. thermo-dämmtechnik.de/app/
   - Oben rechts ⋮ antippen → „App installieren“ bzw.
     „Zum Startbildschirm hinzufügen“ → bestätigen
-  - Das TD-Icon liegt jetzt auf dem Startbildschirm. Kein Claude-Konto nötig.
+  - Das IsoPro-Icon liegt jetzt auf dem Startbildschirm. Kein Claude-Konto nötig.
   - iPhone: In Safari öffnen → Teilen-Symbol → „Zum Home-Bildschirm“.
 
 3) WICHTIG ZU DEN DATEN

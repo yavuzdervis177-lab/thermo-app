@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Thermo Dämmtechnik</title>
+<title>IsoPro</title>
 <meta name="theme-color" content="#1d2228">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -261,7 +261,7 @@ body.isofull.typing .isoed .poslist{flex:none;max-height:32vh;margin-top:6px}
 </head>
 <body>
 <header>
-  <div><h1>Thermo <b>Dämmtechnik</b></h1><div class="sub">Wärme · Kälte · Schall · Brandschutz</div></div>
+  <div><h1>Iso<b>Pro</b></h1><div class="sub">Wärme · Kälte · Schall · Brandschutz</div></div>
   <div id="sync"><i></i><span>Lokal</span></div><button id="gear" aria-label="Einstellungen" type="button">⚙</button>
 </header>
 <main id="app"></main>
@@ -1245,7 +1245,7 @@ function rEinst(a){const f=S.firma||{};
   <div style="flex:1"><label class="btn sec phlab" style="margin-bottom:6px">🖼️ Logo wählen<input type="file" accept="image/*" class="phin" id="logoin"></label>${f.logo?'<button class="btn bad" id="logorm" type="button" style="margin-left:6px">Entfernen</button>':''}<div class="note">PNG oder JPG, am besten mit hellem oder transparentem Hintergrund.</div></div></div>
   <div class="grid2">${FIRMA_F.map(([k,l,ph])=>`<label class="f" ${k==='firma'?'style="grid-column:1/-1"':''}><span>${l}</span><input data-fk="${k}" value="${esc(f[k]||'')}" placeholder="${esc(ph)}" autocomplete="off"></label>`).join('')}</div></div>
  <h3>Vorschau Briefkopf</h3><div class="card" id="lhp">${letterheadHTML()}</div>
- <h3>App aufs Handy</h3><div class="card">${STANDALONE?`<ol class="appsteps"><li>Diese Seite in <b>Chrome</b> geöffnet lassen</li><li>Oben rechts <b>⋮</b> → <b>„App installieren“</b> bzw. <b>„Zum Startbildschirm hinzufügen“</b></li><li>Bestätigen – das TD-Icon liegt danach auf dem Startbildschirm</li></ol><p class="note">Die Daten werden nur auf diesem Handy gespeichert. Mit der Datensicherung unten kannst du sie auf ein anderes Handy übertragen.</p>`:`<ol class="appsteps"><li>Link kopieren und in <b>Chrome</b> öffnen</li><li>Bei claude.ai mit deinem Konto anmelden</li><li>Oben rechts <b>⋮</b> → <b>„Zum Startbildschirm hinzufügen“</b></li><li>Name „Thermo Dämmtechnik“ → <b>Hinzufügen</b></li></ol>
+ <h3>App aufs Handy</h3><div class="card">${STANDALONE?`<ol class="appsteps"><li>Diese Seite in <b>Chrome</b> geöffnet lassen</li><li>Oben rechts <b>⋮</b> → <b>„App installieren“</b> bzw. <b>„Zum Startbildschirm hinzufügen“</b></li><li>Bestätigen – das IsoPro-Icon liegt danach auf dem Startbildschirm</li></ol><p class="note">Die Daten werden nur auf diesem Handy gespeichert. Mit der Datensicherung unten kannst du sie auf ein anderes Handy übertragen.</p>`:`<ol class="appsteps"><li>Link kopieren und in <b>Chrome</b> öffnen</li><li>Bei claude.ai mit deinem Konto anmelden</li><li>Oben rechts <b>⋮</b> → <b>„Zum Startbildschirm hinzufügen“</b></li><li>Name „IsoPro“ → <b>Hinzufügen</b></li></ol>
  <button class="btn sec full" id="cplink" type="button">🔗 Link zur App kopieren</button><p class="note">In Chrome funktionieren auch Fotos und das Logo-Hochladen. Daten sind auf allen Geräten gleich.</p>`}</div>
 ${pinSettingsHTML()}
  <h3>Datensicherung</h3><div class="card"><p class="note" style="margin-top:0">Alle Projekte, Stundennachweise, Fotos und Firmendaten als eine Datei sichern – oder auf einem anderen Handy wieder einlesen.</p>
@@ -1261,11 +1261,11 @@ async function imgToDataUrl(src){const im=await loadImg(src);if(!im)return null;
 function allPhotoIds(){const ids=new Set();Object.values(S.projects).forEach(p=>{(p.fotos||[]).forEach(f=>ids.add(f.id));(p.aufgaben||[]).forEach(t=>(t.fotos||[]).forEach(i=>ids.add(i)));(p.tagebuch||[]).forEach(t=>(t.fotos||[]).forEach(i=>ids.add(i)))});return [...ids]}
 async function backupExport(){toast('Sicherung wird erstellt …');const fotos={};for(const id of allPhotoIds()){const d=isLocalPh(id)?await phData(id):await imgToDataUrl('/_blob/'+id);if(d)fotos[id]=d}
  const firma={...S.firma};if(firma.logo&&!firma.logo.startsWith('data:')){const d=await imgToDataUrl(firma.logo);if(d)firma.logo=d}
- const data={app:'Thermo Dämmtechnik',version:1,erstellt:new Date().toISOString(),projekte:S.projects,stunden:ST.items,firma,fotos};
- const name='Thermo_Sicherung_'+today()+'.json';const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
+ const data={app:'IsoPro',version:1,erstellt:new Date().toISOString(),projekte:S.projects,stunden:ST.items,firma,fotos};
+ const name='IsoPro_Sicherung_'+today()+'.json';const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
  if(!(await saveFile(blob,name))){const url=URL.createObjectURL(blob);openSheet(`<h3 style="margin-top:0">Sicherung fertig</h3><p class="note">${fmt(blob.size/1024,0)} KB</p><a class="btn" href="${url}" download="${name}" target="_blank" rel="noopener">💾 Datei öffnen</a>`)}}
 async function backupImport(file){let data;try{data=JSON.parse(await file.text())}catch(e){toast('Datei ist keine gültige Sicherung');return}
- if(!data||data.app!=='Thermo Dämmtechnik'){toast('Datei ist keine Thermo-Sicherung');return}
+ if(!data||!['IsoPro','Thermo Dämmtechnik'].includes(data.app)){toast('Datei ist keine IsoPro-Sicherung');return}
  const np=Object.keys(data.projekte||{}).length,ns=Object.keys(data.stunden||{}).length,nf=Object.keys(data.fotos||{}).length;
  openSheet(`<h3 style="margin-top:0">Sicherung einlesen?</h3><p class="note">${np} Projekte · ${ns} Stundennachweise · ${nf} Fotos vom ${dDE((data.erstellt||'').slice(0,10))}. Vorhandene Einträge mit gleicher Kennung werden überschrieben, andere bleiben erhalten.</p><div class="row"><button class="btn" id="y">Einlesen</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{$('#y').onclick=async()=>{closeSheet();toast('Wird eingelesen …');
   const map={};for(const [id,d] of Object.entries(data.fotos||{})){const k=uid();try{if(S.db){await S.db.doc('fotos/'+k).set({d,t:Date.now()});map[id]='db:'+k}else if(IDB_OK){await IDB.put(k,d);map[id]='loc:'+k}PHC[k]=d}catch(e){}}
