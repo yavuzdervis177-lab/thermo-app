@@ -372,6 +372,7 @@ async function deleteProject(id){S.deleted.add(id);lsSet('isopro_deleted',[...S.
 let dirtyRender=false;
 function softRender(){const a=document.activeElement;if(a&&$('#app').contains(a)&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)){dirtyRender=true;return}render()}
 document.addEventListener('focusout',()=>setTimeout(()=>{if(dirtyRender&&!(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))){dirtyRender=false;render()}},50));
+const MO=()=>(window.firebase&&FB.db&&S.db===FB.db)?[{includeMetadataChanges:true}]:[];
 function mergeFirst(local,docs,del,pend,flushFn,delKey){const next={};let dch=false;
  docs.forEach(d=>{const v=d.data();if(v&&v._del){if(!del.has(d.id)){del.add(d.id);dch=true}return}if(del.has(d.id))return;next[d.id]=JSON.parse(JSON.stringify(v))});
  Object.values(local).forEach(x=>{if(!x||!x.id||del.has(x.id))return;const r=next[x.id];if(!r||(x.updated||0)>(r.updated||0)||pend.has(x.id)){next[x.id]=x;pend.add(x.id);setTimeout(()=>flushFn(x.id),50)}});
@@ -390,7 +391,7 @@ async function initCloud(){
 function attachDb(db){
   S.db=db;S.col=db.collection('projekte');try{firmaSub()}catch(e){}try{prefSub()}catch(e){}try{stSub(db)}catch(e){}softRender();setSync('load');
   const t=setTimeout(()=>setSync('slow'),10000);
-  S.col.onSnapshot(snap=>{
+  S.col.onSnapshot(...MO(),snap=>{
     if(!S.synced){
       if(snap.metadata.fromCache)return;
       S.synced=true;clearTimeout(t);setSync('ok');
@@ -668,7 +669,7 @@ function csv(p){const h=['Nr','Gewerk','Art','DN / Ø','Dämmdicke mm','Material
 /* ---------- Einstellungen: Mitarbeiter & Favoriten ---------- */
 const PREF=Object.assign({ma:[],fav:[]},lsGet('thermo_prefs',{}));let _pT=0,_pBusy=false;
 function prefSave(){lsSet('thermo_prefs',PREF);if(!S.db)return;clearTimeout(_pT);_pBusy=true;_pT=setTimeout(async()=>{try{await S.db.doc('einstellungen/prefs').set({ma:PREF.ma,fav:PREF.fav,updated:Date.now()})}catch(e){}_pBusy=false},600)}
-function prefSub(){if(!S.db)return;let first=true;S.db.doc('einstellungen/prefs').onSnapshot(sn=>{if(sn.metadata&&sn.metadata.fromCache&&first)return;
+function prefSub(){if(!S.db)return;let first=true;S.db.doc('einstellungen/prefs').onSnapshot(...MO(),sn=>{if(sn.metadata&&sn.metadata.fromCache&&first)return;
  const r=sn.exists?sn.data():null;if(first){first=false;const ma=[...new Set([...(r&&r.ma||[]),...PREF.ma])].sort((x,y)=>x.localeCompare(y,'de'));const fav=[...(r&&r.fav||[])];PREF.fav.forEach(f=>{if(!fav.some(g=>g.id===f.id))fav.push(f)});
   const changed=!r||ma.length!==(r.ma||[]).length||fav.length!==(r.fav||[]).length;PREF.ma=ma;PREF.fav=fav;lsSet('thermo_prefs',PREF);if(changed)prefSave();if(UI.tab==='einstellungen')softRender();return}
  if(!r||_pBusy)return;PREF.ma=r.ma||[];PREF.fav=r.fav||[];lsSet('thermo_prefs',PREF);if(UI.tab==='einstellungen'||UI.tab==='aufmass')softRender()},()=>{})}
@@ -1355,7 +1356,7 @@ function hasFirma(){const f=S.firma||{};return !!(f.firma||f.logo||f.strasse)}
 function headerUpd(){const s=document.querySelector('header .sub');if(s)s.textContent=(S.firma&&S.firma.firma)||'Wärme · Kälte · Schall · Brandschutz'}
 let _fT=0,_fBusy=false;
 function firmaSave(){lsSet('isopro_firma',S.firma);headerUpd();if(!S.db)return;clearTimeout(_fT);_fBusy=true;_fT=setTimeout(async()=>{try{await S.db.doc('einstellungen/firma').set(JSON.parse(JSON.stringify(S.firma)));setSync('ok')}catch(e){setSync('err');if(e&&e.code==='invalid_argument')toast('Logo zu groß – bitte kleineres Bild wählen')}_fBusy=false},700)}
-function firmaSub(){if(!S.db)return;let first=true;S.db.doc('einstellungen/firma').onSnapshot(s=>{if(s.metadata&&s.metadata.fromCache&&first)return;
+function firmaSub(){if(!S.db)return;let first=true;S.db.doc('einstellungen/firma').onSnapshot(...MO(),s=>{if(s.metadata&&s.metadata.fromCache&&first)return;
   if(first&&!s.exists&&hasFirma()){first=false;firmaSave();return}first=false;if(!s.exists||_fBusy)return;
   const nd=JSON.parse(JSON.stringify(s.data()));if(JSON.stringify(nd)===JSON.stringify(S.firma))return;S.firma=nd;lsSet('isopro_firma',S.firma);headerUpd();if(UI.tab==='einstellungen')softRender()},()=>{})}
 function loadImg(src){return new Promise(r=>{if(!src)return r(null);const i=new Image();i.onload=()=>r(i);i.onerror=()=>r(null);i.src=src})}
@@ -1454,7 +1455,7 @@ async function stFlush(id){if(ST.deleted.has(id)){ST.pending.delete(id);return}i
  ST.w[id]=0;if(ST.items[id]&&ST.items[id].updated===sent)ST.pending.delete(id)}
 async function stDelete(id){ST.deleted.add(id);lsSet('isopro_del_stunden',[...ST.deleted]);clearTimeout(ST.t[id]);ST.pending.delete(id);delete ST.items[id];lsSet('isopro_stunden',ST.items);
  if(ST.col){for(let k=0;k<20&&ST.w[id];k++)await new Promise(r=>setTimeout(r,150));try{await ST.col.doc(id).set({_del:true,updated:Date.now()})}catch(e){setSync('err')}}}
-function stSub(db){ST.col=db.collection('stunden');ST.col.onSnapshot(snap=>{
+function stSub(db){ST.col=db.collection('stunden');ST.col.onSnapshot(...MO(),snap=>{
   const tomb=id=>ST.col.doc(id).set({_del:true,updated:Date.now()}).catch(()=>{});
   if(!ST.synced){if(snap.metadata.fromCache)return;ST.synced=true;snap.docs.forEach(d=>{const v=d.data();if(ST.deleted.has(d.id)&&!(v&&v._del))tomb(d.id)});
    ST.items=mergeFirst(ST.items,snap.docs,ST.deleted,ST.pending,stFlush,'isopro_del_stunden');
