@@ -1,0 +1,38 @@
+THERMO DÄMMTECHNIK – App fürs Handy (eigenständige Version, ohne Claude-Konto)
+==========================================================================
+
+INHALT DIESES ORDNERS
+  index.html              die App
+  logo.png                Firmenlogo
+  manifest.webmanifest    App-Beschreibung (Name, Icon) für die Installation
+  sw.js                   sorgt dafür, dass die App auch ohne Internet startet
+  icon-*.png              App-Icons (TD-Zeichen)
+  build.py                nur für Änderungen durch Claude – wird nicht gebraucht
+
+1) AUF DIE WEBSEITE HOCHLADEN (einmalig, z. B. durch euren Webmaster)
+  - Alle Dateien in einen Unterordner der Webseite legen, z. B.:
+      https://www.thermo-dämmtechnik.de/app/
+  - Wichtig: Die Seite muss über https:// erreichbar sein, sonst lässt sich
+    die App nicht installieren.
+
+2) AUF JEDEM HANDY INSTALLIEREN
+  - In Chrome die Adresse öffnen, z. B. thermo-dämmtechnik.de/app/
+  - Oben rechts ⋮ antippen → „App installieren“ bzw.
+    „Zum Startbildschirm hinzufügen“ → bestätigen
+  - Das TD-Icon liegt jetzt auf dem Startbildschirm. Kein Claude-Konto nötig.
+  - iPhone: In Safari öffnen → Teilen-Symbol → „Zum Home-Bildschirm“.
+
+3) WICHTIG ZU DEN DATEN
+  - Jedes Handy speichert seine Projekte, Stundennachweise und Fotos selbst.
+    Zwischen den Handys wird NICHT automatisch abgeglichen.
+  - Daten übertragen oder sichern:
+    ⚙ Einstellungen → „Sicherung speichern“ (eine .json-Datei)
+    → Datei z. B. per WhatsApp/E-Mail aufs andere Handy schicken
+    → dort ⚙ Einstellungen → „Sicherung einlesen“.
+  - Werden die Browserdaten von Chrome gelöscht, sind auch die App-Daten weg.
+    Darum regelmäßig eine Sicherung speichern.
+
+4) FOTOS, PDF, CSV
+  - PIN-Sperre: ⚙ Einstellungen → „PIN festlegen“ (gilt pro Handy).
+  - Fotos aufnehmen funktioniert hier (anders als in der Claude-App für Android).
+  - PDFs und CSV-Dateien werden direkt in den Download-Ordner gespeichert.
