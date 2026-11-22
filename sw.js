@@ -1,5 +1,5 @@
 // Thermo Dämmtechnik – Offline-Speicher der App-Dateien
-const CACHE = 'thermo-app-v1';
+const CACHE = 'thermo-app-v2';
 const FILES = ['./', './index.html', './logo.png', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
