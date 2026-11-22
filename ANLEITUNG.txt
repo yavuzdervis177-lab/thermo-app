@@ -6,7 +6,7 @@ INHALT DIESES ORDNERS
   logo.png                Firmenlogo
   manifest.webmanifest    App-Beschreibung (Name, Icon) für die Installation
   sw.js                   sorgt dafür, dass die App auch ohne Internet startet
-  icon-*.png              App-Icons (Kreis Wärme · Kälte · Schall · Brand)
+  icon-*.png              App-Icons (Schriftzug IsoPro)
   build.py                nur für Änderungen durch Claude – wird nicht gebraucht
 
 1) AUF DIE WEBSEITE HOCHLADEN (einmalig, z. B. durch euren Webmaster)
