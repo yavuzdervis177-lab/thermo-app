@@ -629,7 +629,7 @@ function posForm(p,x){
   <div class="grid2">
    <label class="f"><span>Art</span><select id="f_art">${(ARTEN.some(z=>z[0]===v.art)?ARTEN:[[v.art,v.einheit],...ARTEN]).map(([n])=>`<option ${v.art===n?'selected':''}>${n}</option>`).join('')}</select></label>
    <label class="f"><span>Einheit</span><select id="f_einheit">${['lfm','St','m²','m','psch','h'].map(u=>`<option ${v.einheit===u?'selected':''}>${u}</option>`).join('')}</select></label>
-   <label class="f"><span>Rohr-Ø / DN</span><input id="f_dn" list="dnl" value="${esc(v.dn)}" placeholder="z. B. DN 50"><datalist id="dnl">${dnOpts.replace(/<option value="">.*?<\/option>/,'')}</datalist></label>
+   <label class="f"><span>Rohr-Ø / DN</span><input id="f_dn" data-dnf inputmode="decimal" list="dnl" value="${esc(v.dn)}" placeholder="z. B. DN 50"><datalist id="dnl">${dnOpts.replace(/<option value="">.*?<\/option>/,'')}</datalist></label>
    <label class="f"><span>Dämmdicke [mm]</span><input id="f_s" inputmode="decimal" value="${esc(v.s)}"></label>
   </div>
   <label class="f"><span>Material / System</span><input id="f_mat" list="matl" value="${esc(v.mat)}" placeholder="z. B. MW-Schale + Alu-Blech"><datalist id="matl">${['Mineralwolle-Schale','MW-Schale + Alu-Blech','MW-Schale + verz. Stahlblech','MW-Schale + PVC-Mantel','Elastomer (FEF)','Elastomer + Blechmantel','PUR/PIR-Schale','Schaumglas','Calciumsilikat','Brandschutz-Rohrschale','Brandschutzmanschette','Schallschutz-Ummantelung'].map(m=>`<option value="${m}">`).join('')}</datalist></label>
@@ -1026,7 +1026,7 @@ function focusRow(id){const el=$('#plist');const r=el&&el.querySelector(`[data-r
 function isoPosList(p,d,force){const el=$('#plist');if(!el)return;const key=d.segs.map(s=>s.id).join(',')+'|'+d.dn+'|'+d.s;
  if(force||el.dataset.key!==key){el.dataset.key=key;
   if(!d.segs.length)el.innerHTML='<div class="note" style="margin:0">Leitung zeichnen – jede Teilstrecke bekommt automatisch eine Positionsnummer. Hier trägst du dann die Länge ein.</div>';
-  else{el.innerHTML=`<div class="phead"><span>Pos.</span><span>Länge [mm]</span><span>DN / Ø</span><span>s [mm]</span></div>`+d.segs.map((s,i)=>swipeWrap(s.id,`<div class="prow" data-row="${s.id}"><span class="pn">${i+1}</span><input data-f="len" inputmode="numeric" enterkeyhint="next" value="${esc(s.len)}" placeholder="mm"><input data-f="dn" value="${esc(s.dn)}" placeholder="${esc(d.dn||'DN …')}" autocomplete="off"><input data-f="s" inputmode="decimal" value="${esc(s.s)}" placeholder="${esc(d.s||'–')}"><button class="pdel" aria-label="Position löschen">🗑</button></div>`,'swrow')).join('');
+  else{el.innerHTML=`<div class="phead"><span>Pos.</span><span>Länge [mm]</span><span>DN / Ø</span><span>s [mm]</span></div>`+d.segs.map((s,i)=>swipeWrap(s.id,`<div class="prow" data-row="${s.id}"><span class="pn">${i+1}</span><input data-f="len" inputmode="numeric" enterkeyhint="next" value="${esc(s.len)}" placeholder="mm"><input data-f="dn" data-dnf inputmode="decimal" value="${esc(s.dn)}" placeholder="${esc(d.dn||'DN …')}" autocomplete="off"><input data-f="s" inputmode="decimal" value="${esc(s.s)}" placeholder="${esc(d.s||'–')}"><button class="pdel" aria-label="Position löschen">🗑</button></div>`,'swrow')).join('');
    el.querySelectorAll('.prow').forEach(r=>{const s=d.segs.find(x=>x.id===r.dataset.row);if(!s)return;
     r.querySelectorAll('input').forEach(inp=>{
      inp.addEventListener('focus',()=>{IED.sel=s.id;inp._pushed=false;isoDraw(p,d,true)});
@@ -1057,7 +1057,7 @@ function fitSheet(p,d,key){const k=key.slice(2);const f=fittings(d).find(x=>x.k=
   bindRot(p,d,key)})}
 function segSheet(p,d,s){IED.sel=s.id;isoDraw(p,d);const {L,u}=segInfo(s);const diag=u.filter(v=>v!==0).length>1;const key='g:'+s.id;const hasLbl=!!document.querySelector(`#isv [data-lbl="${key}"]`);
  openSheet(`<h3 style="margin-top:0">Leitungsabschnitt</h3><p class="note" style="margin-top:-6px">${diag?'Schräg (45°) · ':''}${L} Rasterschritt(e) · leere Felder = Standard der Zeichnung (${esc(d.dn||'kein DN')}, ${esc(d.s?d.s+' mm':'keine Dämmdicke')})</p>
- <div class="grid2"><label class="f"><span>Länge [mm]</span><input id="sl" inputmode="numeric" value="${esc(s.len)}"></label><label class="f"><span>DN / Ø</span><input id="sd" value="${esc(s.dn)}" placeholder="${esc(d.dn||'z. B. DN 50')}" autocomplete="off"></label>
+ <div class="grid2"><label class="f"><span>Länge [mm]</span><input id="sl" inputmode="numeric" value="${esc(s.len)}"></label><label class="f"><span>DN / Ø</span><input id="sd" data-dnf inputmode="decimal" value="${esc(s.dn)}" placeholder="${esc(d.dn||'z. B. DN 50')}" autocomplete="off"></label>
  <label class="f"><span>Dämmdicke [mm]</span><input id="ss" inputmode="decimal" value="${esc(s.s)}" placeholder="${esc(d.s)}"></label></div>
  ${hasLbl?rotCtl():''}
  <div class="row"><button class="btn" id="ok">Speichern</button><button class="btn bad" id="rm">Löschen</button><button class="btn sec" id="cx">Abbrechen</button></div>`,()=>{
@@ -1078,7 +1078,7 @@ function isoDelSeg(p,d,id){isoPush(d);d.segs=d.segs.filter(x=>x.id!==id);d.syms=
 function isoSettings(p,d){openSheet(`<h3 style="margin-top:0">Zeichnung</h3>
  <label class="f"><span>Name</span><input id="dn_" value="${esc(d.name)}"></label>
  <label class="f"><span>Gewerk</span><div class="chips" id="gw2">${GEWERKE.map(g=>`<button type="button" data-g="${g}" class="${d.gewerk===g?'on':''}">${g}</button>`).join('')}</div></label>
- <div class="grid2"><label class="f"><span>Standard DN / Ø</span><input id="dd_" value="${esc(d.dn)}" placeholder="z. B. DN 50 oder 60,3" autocomplete="off"></label>
+ <div class="grid2"><label class="f"><span>Standard DN / Ø</span><input id="dd_" data-dnf inputmode="decimal" value="${esc(d.dn)}" placeholder="z. B. DN 50 oder 60,3" autocomplete="off"></label>
  <label class="f"><span>Standard-Dämmdicke [mm]</span><input id="ds_" inputmode="decimal" value="${esc(d.s)}"></label></div>
  <label class="chk" style="border:0"><input type="checkbox" id="da_" ${d.showA!==false?'checked':''}><span>Bogenwinkel eingekreist anzeigen (90°/45°)</span></label>
  <label class="chk"><input type="checkbox" id="dp_" ${d.showPos!==false?'checked':''}><span>Positionsnummern in der Zeichnung anzeigen</span></label>
@@ -1524,7 +1524,7 @@ async function isoPdf(p,list){list=list.filter(d=>d.segs.length);if(!list.length
 /* ---------- Modal ---------- */
 function openSheet(html,after){$('#sheet').innerHTML=html;$('#modal').classList.add('on');if(after)after()}
 function closeSheet(){$('#modal').classList.remove('on','top');$('#sheet').innerHTML=''}
-let bdDown=false;$('#modal').addEventListener('pointerdown',e=>{bdDown=e.target.id==='modal'});$('#modal').addEventListener('click',e=>{if(e.target.id==='modal'&&bdDown)closeSheet();bdDown=false});
+document.addEventListener('change',e=>{const t=e.target;if(t&&t.hasAttribute&&t.hasAttribute('data-dnf')&&/^\d+$/.test(t.value.trim())){t.value='DN '+t.value.trim();t.dispatchEvent(new Event('input',{bubbles:true}))}},true);let bdDown=false;$('#modal').addEventListener('pointerdown',e=>{bdDown=e.target.id==='modal'});$('#modal').addEventListener('click',e=>{if(e.target.id==='modal'&&bdDown)closeSheet();bdDown=false});
 
 readHash();headerUpd();render();initCloud();if(pinGet()&&!isUnlocked())showLock();document.getElementById('gear').onclick=()=>{location.hash='einstellungen'};
 </script>
