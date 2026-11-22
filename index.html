@@ -348,7 +348,7 @@ function undoToast(msg,fn){const e=$('#toast');e.innerHTML=`${esc(msg)} <button 
 
 /* ---------- Daten / Speicherung ---------- */
 const S={deleted:new Set(lsGet('isopro_deleted',[])),assets:null,projects:lsGet('isopro_projects',{}),pending:new Set(),col:null,downloads:null,synced:false};
-function setSync(st){const m={local:['#888',window.THERMO_STANDALONE?'Auf diesem Handy gespeichert':'Nur auf diesem Gerät'],ok:['#2e7d4f','Gespeichert'],load:['#b7791f','Verbinde …'],slow:['#b7791f','Offline? Daten evtl. nicht aktuell'],err:['#c0392b','Speicherfehler']}[st];const s=$('#sync');s.querySelector('i').style.background=m[0];s.querySelector('span').textContent=m[1]}
+function setSync(st){const m={local:['#888',window.THERMO_STANDALONE?'Auf diesem Handy gespeichert':'Nur auf diesem Gerät'],ok:['#2e7d4f',window.THERMO_STANDALONE?'Synchronisiert':'Gespeichert'],load:['#b7791f','Verbinde …'],slow:['#b7791f','Offline? Daten evtl. nicht aktuell'],err:['#c0392b','Speicherfehler']}[st];const s=$('#sync');s.querySelector('i').style.background=m[0];s.querySelector('span').textContent=m[1]}
 setSync('local');
 const timers={},writing={};
 function saveProject(p){p.updated=Date.now();S.projects[p.id]=p;lsSet('isopro_projects',S.projects);if(S.col){S.pending.add(p.id);clearTimeout(timers[p.id]);timers[p.id]=setTimeout(()=>flush(p.id),700)}}
@@ -367,34 +367,68 @@ async function flush(id){
   if(S.projects[id]&&S.projects[id].updated===sent)S.pending.delete(id);
 }
 async function remoteDelete(id){if(!S.col)return false;for(let k=0;k<20&&writing[id];k++)await new Promise(r=>setTimeout(r,150));
-  for(let a=0;a<2;a++){try{await S.col.doc(id).delete();return true}catch(e){if(!(e&&e.code==='unavailable'))break;await new Promise(r=>setTimeout(r,800))}}setSync('err');toast('Löschen auf dem Server fehlgeschlagen – wird beim nächsten Start erneut versucht');return false}
+  for(let a=0;a<2;a++){try{await S.col.doc(id).set({_del:true,updated:Date.now()});return true}catch(e){if(!(e&&e.code==='unavailable'))break;await new Promise(r=>setTimeout(r,800))}}setSync('err');toast('Löschen auf dem Server fehlgeschlagen – wird beim nächsten Start erneut versucht');return false}
 async function deleteProject(id){S.deleted.add(id);lsSet('isopro_deleted',[...S.deleted]);clearTimeout(timers[id]);S.pending.delete(id);delete S.projects[id];lsSet('isopro_projects',S.projects);await remoteDelete(id)}
 let dirtyRender=false;
 function softRender(){const a=document.activeElement;if(a&&$('#app').contains(a)&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)){dirtyRender=true;return}render()}
 document.addEventListener('focusout',()=>setTimeout(()=>{if(dirtyRender&&!(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))){dirtyRender=false;render()}},50));
+function mergeFirst(local,docs,del,pend,flushFn,delKey){const next={};let dch=false;
+ docs.forEach(d=>{const v=d.data();if(v&&v._del){if(!del.has(d.id)){del.add(d.id);dch=true}return}if(del.has(d.id))return;next[d.id]=JSON.parse(JSON.stringify(v))});
+ Object.values(local).forEach(x=>{if(!x||!x.id||del.has(x.id))return;const r=next[x.id];if(!r||(x.updated||0)>(r.updated||0)||pend.has(x.id)){next[x.id]=x;pend.add(x.id);setTimeout(()=>flushFn(x.id),50)}});
+ if(dch)lsSet(delKey,[...del]);return next}
+function applyChange(c,store,del,pend,delKey,tomb){const id=c.doc.id;if(del.has(id)){if(c.type!=='removed'){const v=c.doc.data();if(!(v&&v._del))tomb(id)}return false}
+ if(c.type==='removed'){if(store[id]){delete store[id];return true}return false}const v=c.doc.data();
+ if(v&&v._del){del.add(id);lsSet(delKey,[...del]);if(store[id]){delete store[id];return true}return false}
+ if(pend.has(id))return false;if(store[id]&&(store[id].updated||0)>(v.updated||0))return false;store[id]=JSON.parse(JSON.stringify(v));return true}
 async function initCloud(){
   if(!(window.claude&&typeof window.claude.use==='function'))return;
   try{const as=await window.claude.use('assets');if(as){S.assets=as;softRender()}}catch(e){}
   try{const d=await window.claude.use('downloads');if(d){S.downloads=d;softRender()}}catch(e){}
   let db=null;try{db=await window.claude.use('db')}catch(e){}
   if(!db)return;
-  S.db=db;S.col=db.collection('projekte');try{firmaSub()}catch(e){}try{stSub(db)}catch(e){}softRender();setSync('load');
+  attachDb(db)}
+function attachDb(db){
+  S.db=db;S.col=db.collection('projekte');try{firmaSub()}catch(e){}try{prefSub()}catch(e){}try{stSub(db)}catch(e){}softRender();setSync('load');
   const t=setTimeout(()=>setSync('slow'),10000);
   S.col.onSnapshot(snap=>{
     if(!S.synced){
       if(snap.metadata.fromCache)return;
       S.synced=true;clearTimeout(t);setSync('ok');
-      snap.docs.forEach(d=>{if(S.deleted.has(d.id))remoteDelete(d.id)});
-      if(snap.empty&&Object.keys(S.projects).length){Object.values(S.projects).forEach(p=>{if(!S.deleted.has(p.id)){S.pending.add(p.id);flush(p.id)}})}
-      else{const next={};snap.docs.forEach(d=>{if(!S.deleted.has(d.id))next[d.id]=JSON.parse(JSON.stringify(d.data()))});S.pending.forEach(id=>{if(S.projects[id])next[id]=S.projects[id]});S.projects=next}
-      lsSet('isopro_projects',S.projects);softRender();return;
+      snap.docs.forEach(d=>{const v=d.data();if(S.deleted.has(d.id)&&!(v&&v._del))remoteDelete(d.id)});
+      S.projects=mergeFirst(S.projects,snap.docs,S.deleted,S.pending,flush,'isopro_deleted');
+      lsSet('isopro_projects',S.projects);softRender();if(window.THERMO_STANDALONE)setTimeout(migrateLocalPhotos,1500);return;
     }
     let ch=false;
-    snap.docChanges().forEach(c=>{const id=c.doc.id;if(S.deleted.has(id)){if(c.type!=='removed')remoteDelete(id);return}if(S.pending.has(id))return;if(c.type==='removed')delete S.projects[id];else S.projects[id]=JSON.parse(JSON.stringify(c.doc.data()));ch=true});
+    snap.docChanges().forEach(c=>{if(applyChange(c,S.projects,S.deleted,S.pending,'isopro_deleted',remoteDelete))ch=true});
     if(ch){lsSet('isopro_projects',S.projects);softRender()}
   },err=>{clearTimeout(t);setSync('err')});
 }
 
+/* ---------- Firebase-Synchronisation (eigenständige App) ---------- */
+const FB_CFG={apiKey:"AIzaSyBkiHBxWk6BZbn8gn64KF_HG72qXDMRqtM",authDomain:"isopro-thermo-1a2b3.firebaseapp.com",projectId:"isopro-thermo-1a2b3",storageBucket:"isopro-thermo-1a2b3.firebasestorage.app",messagingSenderId:"517453144243",appId:"1:517453144243:web:2f2e651d91f260f80a50c6"};
+const FBV='10.12.2';const FB={ready:null,user:null,loaded:false,err:''};
+function loadScript(src){return new Promise((res,rej)=>{const x=document.createElement('script');x.src=src;x.onload=res;x.onerror=()=>rej(new Error('load'));document.head.appendChild(x)})}
+function fbLoad(){if(FB.ready)return FB.ready;FB.ready=(async()=>{for(const m of ['app','auth','firestore'])await loadScript(`https://www.gstatic.com/firebasejs/${FBV}/firebase-${m}-compat.js`);
+  firebase.initializeApp(FB_CFG);const db=firebase.firestore();try{await db.enablePersistence({synchronizeTabs:true})}catch(e){}FB.db=db;FB.loaded=true;return true})();FB.ready.catch(()=>{FB.ready=null});return FB.ready}
+async function initFirebase(){if(!window.THERMO_STANDALONE)return;try{await fbLoad()}catch(e){FB.err='nonet';if(UI.tab==='einstellungen')softRender();return}
+ firebase.auth().onAuthStateChanged(u=>{const was=FB.user;FB.user=u;if(u&&!S.db)attachDb(FB.db);else if(!u&&was&&S.db){location.reload();return}softRender()})}
+const fbErr=e=>{const c=e&&e.code||'';if(/invalid-credential|wrong-password|user-not-found|invalid-email|invalid-login/.test(c))return 'E-Mail oder Passwort falsch';if(/network/.test(c))return 'Keine Internetverbindung';if(/too-many-requests/.test(c))return 'Zu viele Versuche – bitte kurz warten';if(/user-disabled/.test(c))return 'Dieser Zugang ist gesperrt';return 'Anmeldung fehlgeschlagen ('+(c||'unbekannt')+')'};
+async function fbLogin(email,pw){try{await fbLoad()}catch(e){toast('Keine Internetverbindung');return false}try{await firebase.auth().signInWithEmailAndPassword(email,pw);toast('Angemeldet – Daten werden abgeglichen');return true}catch(e){toast(fbErr(e));return false}}
+async function fbLogout(){try{await firebase.auth().signOut()}catch(e){}location.reload()}
+function syncSettingsHTML(){if(!window.THERMO_STANDALONE)return '';
+ return `<h3>Synchronisation (alle Handys)</h3><div class="card">${FB.user?`<p style="margin:0 0 8px">✅ Angemeldet als <b>${esc(FB.user.email||'')}</b></p><p class="note" style="margin-top:0">Projekte, Aufmaße, Isometrien, Stundennachweise, Fotos, Firmendaten, Mitarbeiter und Favoriten werden live mit allen angemeldeten Handys abgeglichen. Ohne Netz wird auf dem Handy gespeichert und später automatisch nachgeschickt.</p><button class="btn sec" id="fbout" type="button">Abmelden</button>`
+ :`<p class="note" style="margin-top:0">Mit dem Firmen-Zugang anmelden – dann sind die Daten auf allen Handys gleich und aktuell.${FB.err==='nonet'?' <b>Keine Verbindung zum Server – bitte Internet prüfen.</b>':''}</p>
+  <label class="f"><span>E-Mail</span><input id="fbmail" type="email" autocomplete="username" autocapitalize="off" spellcheck="false"></label><label class="f"><span>Passwort</span><input id="fbpw" type="password" autocomplete="current-password"></label>
+  <button class="btn" id="fbin" type="button">Anmelden</button><p class="note">Beim ersten Anmelden werden die Daten dieses Handys mit dem Server zusammengeführt – es geht nichts verloren.</p>`}</div>`}
+function bindSyncSettings(a){if($('#fbout'))$('#fbout').onclick=()=>openSheet(`<h3 style="margin-top:0">Abmelden?</h3><p class="note">Die Daten bleiben auf diesem Handy, werden aber nicht mehr abgeglichen.</p><div class="row"><button class="btn bad" id="y">Abmelden</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{$('#y').onclick=()=>{closeSheet();fbLogout()}});
+ if($('#fbin'))$('#fbin').onclick=async()=>{const m=$('#fbmail').value.trim(),pw=$('#fbpw').value;if(!m||!pw){toast('Bitte E-Mail und Passwort eingeben');return}$('#fbin').disabled=true;$('#fbin').textContent='Anmelden …';const ok=await fbLogin(m,pw);if(!ok&&$('#fbin')){$('#fbin').disabled=false;$('#fbin').textContent='Anmelden'}}}
+function syncBannerHTML(){if(!window.THERMO_STANDALONE||FB.user||!FB.loaded||lsGet('thermo_syncsnooze',0)>Date.now())return '';
+ return `<div class="bkban" style="border-left-color:#2e7d4f">🔄 <b>Daten auf allen Handys gleich halten</b><div class="note" style="margin:2px 0 8px">Mit dem Firmen-Zugang anmelden – dann wird alles live abgeglichen.</div><div class="row"><button class="btn" onclick="location.hash='einstellungen'">Anmelden</button><button class="btn sec" onclick="lsSet('thermo_syncsnooze',Date.now()+7*864e5);render()">Später</button></div></div>`}
+async function migrateLocalPhotos(){if(!S.db)return;const ids=[...allPhotoIds()].filter(i=>i.startsWith('loc:'));if(!ids.length)return;const map={};
+ for(const id of ids){try{const du=await phData(id);if(!du)continue;let small=du;if(du.length>240000){const bl=await (await fetch(du)).blob();for(const [m,q] of [[1280,.6],[1024,.55],[800,.5]]){const t=await shrinkTo(bl,m,q);if(t&&t.length<240000){small=t;break}}}
+  if(small.length>900000)continue;const k=uid();await S.db.doc('fotos/'+k).set({d:small,t:Date.now()});PHC[k]=small;map[id]='db:'+k}catch(e){}}
+ if(!Object.keys(map).length)return;const R=a=>(a||[]).map(i=>map[i]||i);
+ Object.values(S.projects).forEach(p=>{let ch=false;(p.fotos||[]).forEach(f=>{if(map[f.id]){f.id=map[f.id];ch=true}});(p.aufgaben||[]).forEach(t=>{const n=R(t.fotos);if(JSON.stringify(n)!==JSON.stringify(t.fotos||[])){t.fotos=n;ch=true}});(p.tagebuch||[]).forEach(t=>{const n=R(t.fotos);if(JSON.stringify(n)!==JSON.stringify(t.fotos||[])){t.fotos=n;ch=true}});if(ch)saveProject(p)});softRender()}
 /* ---------- Stammdaten ---------- */
 const DN_STAHL=[[10,17.2],[15,21.3],[20,26.9],[25,33.7],[32,42.4],[40,48.3],[50,60.3],[65,76.1],[80,88.9],[100,114.3],[125,139.7],[150,168.3],[200,219.1],[250,273],[300,323.9],[350,355.6],[400,406.4]];
 const CU=[12,15,18,22,28,35,42,54,64,76.1,88.9,108];
@@ -505,7 +539,7 @@ function rProjekte(a){
   const list=all.filter(p=>(UI.filter==='Alle'||p.status===UI.filter)&&(!q||[p.name,p.kunde,p.ort].join(' ').toLowerCase().includes(q)));
   const offen=all.reduce((s,p)=>s+(p.aufgaben||[]).filter(t=>!t.done).length,0);
   const vol=all.filter(p=>p.status!=='Anfrage').reduce((s,p)=>s+netto(p),0);
-  a.innerHTML=`<div class="row" style="justify-content:space-between"><h2>Projekte</h2><button class="btn" id="np">+ Neu</button></div>${bkBannerHTML()}
+  a.innerHTML=`<div class="row" style="justify-content:space-between"><h2>Projekte</h2><button class="btn" id="np">+ Neu</button></div>${syncBannerHTML()}${bkBannerHTML()}
   <div class="kpi"><div><b>${all.filter(p=>p.status!=='Abgeschlossen').length}</b><span>laufend</span></div><div><b>${offen}</b><span>offene Aufgaben</span></div><div><b>${all.reduce((s,p)=>s+allPos(p).length,0)}</b><span>Positionen</span></div></div>
   <input class="search" placeholder="Suchen: Projekt, Kunde, Ort" value="${esc(UI.q)}" id="q">
   <div class="chips">${['Alle',...STATUS].map(s=>`<button class="${UI.filter===s?'on':''}" data-f="${s}">${s}</button>`).join('')}</div>
@@ -632,7 +666,12 @@ function aufmassText(p){let t=`AUFMASS – ${p.name}\n`;
 function csv(p){const h=['Nr','Gewerk','Art','DN / Ø','Dämmdicke mm','Material','Bemerkung','Menge','Einheit'];const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';const f=n=>String(Math.round(n*100)/100).replace('.',',');
   return '﻿'+[h.join(';'),...allPos(p).map((x,i)=>[i+1,x.gewerk,x.art,x.dn,x.s,x.mat,x.bez,f(num(x.menge)),x.einheit].map(q).join(';'))].join('\r\n')}
 /* ---------- Einstellungen: Mitarbeiter & Favoriten ---------- */
-const PREF=Object.assign({ma:[],fav:[]},lsGet('thermo_prefs',{}));const prefSave=()=>lsSet('thermo_prefs',PREF);
+const PREF=Object.assign({ma:[],fav:[]},lsGet('thermo_prefs',{}));let _pT=0,_pBusy=false;
+function prefSave(){lsSet('thermo_prefs',PREF);if(!S.db)return;clearTimeout(_pT);_pBusy=true;_pT=setTimeout(async()=>{try{await S.db.doc('einstellungen/prefs').set({ma:PREF.ma,fav:PREF.fav,updated:Date.now()})}catch(e){}_pBusy=false},600)}
+function prefSub(){if(!S.db)return;let first=true;S.db.doc('einstellungen/prefs').onSnapshot(sn=>{if(sn.metadata&&sn.metadata.fromCache&&first)return;
+ const r=sn.exists?sn.data():null;if(first){first=false;const ma=[...new Set([...(r&&r.ma||[]),...PREF.ma])].sort((x,y)=>x.localeCompare(y,'de'));const fav=[...(r&&r.fav||[])];PREF.fav.forEach(f=>{if(!fav.some(g=>g.id===f.id))fav.push(f)});
+  const changed=!r||ma.length!==(r.ma||[]).length||fav.length!==(r.fav||[]).length;PREF.ma=ma;PREF.fav=fav;lsSet('thermo_prefs',PREF);if(changed)prefSave();if(UI.tab==='einstellungen')softRender();return}
+ if(!r||_pBusy)return;PREF.ma=r.ma||[];PREF.fav=r.fav||[];lsSet('thermo_prefs',PREF);if(UI.tab==='einstellungen'||UI.tab==='aufmass')softRender()},()=>{})}
 function maDatalist(){return `<datalist id="malist">${PREF.ma.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>`}
 /* ---------- Unterschriften ---------- */
 function trimSig(c){const x=c.getContext('2d');const {width:w,height:h}=c;const d=x.getImageData(0,0,w,h).data;let x0=w,y0=h,x1=-1,y1=-1;
@@ -1338,7 +1377,7 @@ function rEinst(a){const f=S.firma||{};
  <div class="favs" style="margin:0 0 10px">${PREF.ma.map((n,i)=>`<button type="button" data-mx="${i}">${esc(n)} <span style="color:var(--muted)">✕</span></button>`).join('')||'<span class="note" style="margin:0">Noch keine Mitarbeiter.</span>'}</div>
  <div class="row"><input id="maadd" placeholder="Name, z. B. Hans Becker" autocomplete="off" style="flex:1;min-width:0"><button class="btn" id="maaddb" type="button">+ Hinzufügen</button></div></div>
  <h3>Favoriten im Aufmaß</h3><div class="card">${PREF.fav.length?PREF.fav.map((f,i)=>`<div class="sgrow"><div style="flex:1;min-width:0"><b>${esc(favLabel(f))}</b><div class="note" style="margin:0">${esc([f.gewerk,f.mat].filter(Boolean).join(' · '))}</div></div><button class="btn sec" data-fx="${i}" type="button">Entfernen</button></div>`).join(''):'<p class="note" style="margin:0">Noch keine Favoriten. Im Aufmaß bei einer Position „⭐ Als Favorit“ antippen.</p>'}</div>
-${pinSettingsHTML()}
+${syncSettingsHTML()}${pinSettingsHTML()}
  <h3>Datensicherung</h3><div class="card"><p class="note" style="margin-top:0">Alle Projekte, Stundennachweise, Fotos und Firmendaten als eine Datei sichern – oder auf einem anderen Handy wieder einlesen.<br><b>Letzte Sicherung: ${lsGet('thermo_lastbk',0)?dDE(new Date(lsGet('thermo_lastbk',0)).toISOString().slice(0,10)):'noch nie'}</b></p>
  <div class="row"><button class="btn sec" id="bkexp" type="button">💾 Sicherung speichern</button><label class="btn sec phlab">📂 Sicherung einlesen<input type="file" accept=".json,.txt,application/json,text/plain" class="phin" id="bkimp"></label></div></div>`;
  a.querySelector('.back').onclick=()=>history.length>1?history.back():(location.hash='projekte');
@@ -1351,6 +1390,7 @@ ${pinSettingsHTML()}
  $('#maaddb').onclick=maAdd;$('#maadd').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();maAdd()}});
  a.querySelectorAll('[data-mx]').forEach(b=>b.onclick=()=>{const n=PREF.ma[+b.dataset.mx];PREF.ma.splice(+b.dataset.mx,1);prefSave();rEinst(a);undoToast(n+' entfernt',()=>{PREF.ma.push(n);PREF.ma.sort((x,y)=>x.localeCompare(y,'de'));prefSave();rEinst(a)})});
  a.querySelectorAll('[data-fx]').forEach(b=>b.onclick=()=>{PREF.fav.splice(+b.dataset.fx,1);prefSave();rEinst(a)});
+ bindSyncSettings(a);
  $('#bkexp').onclick=()=>backupExport();$('#bkimp').addEventListener('change',e=>{const f=e.target.files[0];e.target.value='';if(f)backupImport(f)})}
 async function imgToDataUrl(src){const im=await loadImg(src);if(!im)return null;try{const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;c.getContext('2d').drawImage(im,0,0);return c.toDataURL('image/jpeg',.85)}catch(e){return null}}
 function allPhotoIds(){const ids=new Set();Object.values(S.projects).forEach(p=>{(p.fotos||[]).forEach(f=>ids.add(f.id));(p.aufgaben||[]).forEach(t=>(t.fotos||[]).forEach(i=>ids.add(i)));(p.tagebuch||[]).forEach(t=>(t.fotos||[]).forEach(i=>ids.add(i)))});return [...ids]}
@@ -1413,13 +1453,13 @@ async function stFlush(id){if(ST.deleted.has(id)){ST.pending.delete(id);return}i
  const sent=s.updated;ST.w[id]=1;const body=JSON.parse(JSON.stringify(s));for(let a=0;a<2;a++){try{await ST.col.doc(id).set(body);setSync('ok');break}catch(e){if(!(e&&e.code==='unavailable')){setSync('err');break}await new Promise(r=>setTimeout(r,900))}}
  ST.w[id]=0;if(ST.items[id]&&ST.items[id].updated===sent)ST.pending.delete(id)}
 async function stDelete(id){ST.deleted.add(id);lsSet('isopro_del_stunden',[...ST.deleted]);clearTimeout(ST.t[id]);ST.pending.delete(id);delete ST.items[id];lsSet('isopro_stunden',ST.items);
- if(ST.col){for(let k=0;k<20&&ST.w[id];k++)await new Promise(r=>setTimeout(r,150));try{await ST.col.doc(id).delete()}catch(e){setSync('err')}}}
+ if(ST.col){for(let k=0;k<20&&ST.w[id];k++)await new Promise(r=>setTimeout(r,150));try{await ST.col.doc(id).set({_del:true,updated:Date.now()})}catch(e){setSync('err')}}}
 function stSub(db){ST.col=db.collection('stunden');ST.col.onSnapshot(snap=>{
-  if(!ST.synced){if(snap.metadata.fromCache)return;ST.synced=true;snap.docs.forEach(d=>{if(ST.deleted.has(d.id))ST.col.doc(d.id).delete().catch(()=>{})});
-   if(snap.empty&&Object.keys(ST.items).length)Object.values(ST.items).forEach(s=>{if(!ST.deleted.has(s.id)){ST.pending.add(s.id);stFlush(s.id)}});
-   else{const n={};snap.docs.forEach(d=>{if(!ST.deleted.has(d.id))n[d.id]=JSON.parse(JSON.stringify(d.data()))});ST.pending.forEach(id=>{if(ST.items[id])n[id]=ST.items[id]});ST.items=n}
+  const tomb=id=>ST.col.doc(id).set({_del:true,updated:Date.now()}).catch(()=>{});
+  if(!ST.synced){if(snap.metadata.fromCache)return;ST.synced=true;snap.docs.forEach(d=>{const v=d.data();if(ST.deleted.has(d.id)&&!(v&&v._del))tomb(d.id)});
+   ST.items=mergeFirst(ST.items,snap.docs,ST.deleted,ST.pending,stFlush,'isopro_del_stunden');
    lsSet('isopro_stunden',ST.items);softRender();return}
-  let ch=false;snap.docChanges().forEach(c=>{const id=c.doc.id;if(ST.deleted.has(id)){if(c.type!=='removed')ST.col.doc(id).delete().catch(()=>{});return}if(ST.pending.has(id))return;if(c.type==='removed')delete ST.items[id];else ST.items[id]=JSON.parse(JSON.stringify(c.doc.data()));ch=true});
+  let ch=false;snap.docChanges().forEach(c=>{if(applyChange(c,ST.items,ST.deleted,ST.pending,'isopro_del_stunden',tomb))ch=true});
   if(ch){lsSet('isopro_stunden',ST.items);softRender()}},()=>{})}
 /* Berechnung */
 function dayStd(r){if(!r||r.art)return 0;const a=hm(r.von),b=hm(r.bis);if(a!==null&&b!==null){let m=b-a;if(m<0)m+=1440;m-=num(r.pause);return Math.max(0,Math.round(m/60*100)/100)}return num(r.std)}
@@ -1691,7 +1731,7 @@ function openSheet(html,after){$('#sheet').innerHTML=html;$('#modal').classList.
 function closeSheet(){$('#modal').classList.remove('on','top');$('#sheet').innerHTML=''}
 document.addEventListener('change',e=>{const t=e.target;if(t&&t.hasAttribute&&t.hasAttribute('data-dnf')&&/^\d+$/.test(t.value.trim())){t.value='DN '+t.value.trim();t.dispatchEvent(new Event('input',{bubbles:true}))}},true);let bdDown=false;$('#modal').addEventListener('pointerdown',e=>{bdDown=e.target.id==='modal'});$('#modal').addEventListener('click',e=>{if(e.target.id==='modal'&&bdDown)closeSheet();bdDown=false});
 
-readHash();headerUpd();render();initCloud();if(pinGet()&&!isUnlocked())showLock();document.getElementById('gear').onclick=()=>{location.hash='einstellungen'};
+readHash();headerUpd();render();initCloud();initFirebase();if(pinGet()&&!isUnlocked())showLock();document.getElementById('gear').onclick=()=>{location.hash='einstellungen'};
 </script>
 <script>if('serviceWorker' in navigator&&location.protocol.startsWith('http')){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}</script>
 </body>
