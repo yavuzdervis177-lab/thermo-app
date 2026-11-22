@@ -267,11 +267,11 @@ body.isofull.typing .isoed .poslist{flex:none;max-height:32vh;margin-top:6px}
 </header>
 <main id="app"></main>
 <nav id="tabs">
-  <button data-tab="rechner"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M16 11h0M8 15h2M12 15h2M8 18h2M12 18h4"/></svg>Rechner</button>
   <button data-tab="projekte"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Projekte</button>
   <button data-tab="aufmass"><svg viewBox="0 0 24 24"><path d="M3 17 17 3l4 4L7 21H3z"/><path d="M13 7l2 2M10 10l1.5 1.5M7 13l2 2"/></svg>Aufmaß</button>
   <button data-tab="iso"><svg viewBox="0 0 24 24"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg>Isometrie</button>
   <button data-tab="stunden"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Stunden</button>
+  <button data-tab="rechner"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M16 11h0M8 15h2M12 15h2M8 18h2M12 18h4"/></svg>Rechner</button>
   <button data-tab="wissen"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M9 7h6"/></svg>Wissen</button>
 </nav>
 <div id="modal"><div class="sheet" id="sheet"></div></div>
@@ -450,10 +450,10 @@ const CALCS=[
 ];
 
 /* ---------- Navigation ---------- */
-const UI={tab:'rechner',calc:null,proj:null,aproj:null,filter:'Alle',q:''};
-function readHash(){const h=(location.hash||'').slice(1);UI.tab=['rechner','projekte','aufmass','iso','stunden','wissen','einstellungen'].includes(h)?h:'rechner'}
+const UI={tab:'projekte',calc:null,proj:null,aproj:null,filter:'Alle',q:''};
+function readHash(){const h=(location.hash||'').slice(1);UI.tab=['rechner','projekte','aufmass','iso','stunden','wissen','einstellungen'].includes(h)?h:'projekte'}
 window.addEventListener('hashchange',()=>{closeSheet();readHash();render();window.scrollTo(0,0)});
-document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{const t=b.dataset.tab;if(t===UI.tab){if(t==='rechner')UI.calc=null;if(t==='projekte')UI.proj=null;if(t==='iso')UI.idraw=null;if(t==='wissen')UI.wsel=null;if(t==='stunden')UI.sheet=null;render();window.scrollTo(0,0)}else location.hash=t});
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{const t=b.dataset.tab;if(t===UI.tab){if(t==='rechner')UI.calc=null;if(t==='projekte')UI.proj=null;if(t==='iso')UI.idraw=null;if(t==='aufmass'){if(UI.asheet)UI.asheet=null;else UI.aproj=null}if(t==='wissen')UI.wsel=null;if(t==='stunden')UI.sheet=null;render();window.scrollTo(0,0)}else location.hash=t});
 function render(){const fs=UI.tab==='iso'&&IED.full&&!!UI.idraw;document.body.classList.toggle('isofull',fs);if(!fs&&IED.full&&!(UI.tab==='iso'&&UI.idraw)){IED.full=false;reqFS(false)}
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===UI.tab));
   const a=$('#app');({rechner:rRechner,projekte:rProjekte,aufmass:rAufmass,iso:rIso,stunden:rStunden,wissen:rWissen,einstellungen:rEinst})[UI.tab](a)}
@@ -481,7 +481,7 @@ function rRechner(a){
 }
 
 /* ---------- Projekte ---------- */
-function newProject(){const p={id:uid(),name:'Neues Projekt',kunde:'',ort:'',status:'Anfrage',datum:today(),notiz:'',mwst:19,pos:[],aufgaben:[],tagebuch:[],created:Date.now()};saveProject(p);return p}
+function newProject(){const p={id:uid(),name:'Neues Projekt',kunde:'',ort:'',status:'Anfrage',datum:today(),notiz:'',mwst:19,aufm:[],aufgaben:[],tagebuch:[],created:Date.now()};saveProject(p);return p}
 function netto(p){return 0}
 function rProjekte(a){
   if(UI.proj&&S.projects[UI.proj])return rProjekt(a,S.projects[UI.proj]);
@@ -492,10 +492,10 @@ function rProjekte(a){
   const offen=all.reduce((s,p)=>s+(p.aufgaben||[]).filter(t=>!t.done).length,0);
   const vol=all.filter(p=>p.status!=='Anfrage').reduce((s,p)=>s+netto(p),0);
   a.innerHTML=`<div class="row" style="justify-content:space-between"><h2>Projekte</h2><button class="btn" id="np">+ Neu</button></div>
-  <div class="kpi"><div><b>${all.filter(p=>p.status!=='Abgeschlossen').length}</b><span>laufend</span></div><div><b>${offen}</b><span>offene Aufgaben</span></div><div><b>${all.reduce((s,p)=>s+(p.pos||[]).length,0)}</b><span>Positionen</span></div></div>
+  <div class="kpi"><div><b>${all.filter(p=>p.status!=='Abgeschlossen').length}</b><span>laufend</span></div><div><b>${offen}</b><span>offene Aufgaben</span></div><div><b>${all.reduce((s,p)=>s+allPos(p).length,0)}</b><span>Positionen</span></div></div>
   <input class="search" placeholder="Suchen: Projekt, Kunde, Ort" value="${esc(UI.q)}" id="q">
   <div class="chips">${['Alle',...STATUS].map(s=>`<button class="${UI.filter===s?'on':''}" data-f="${s}">${s}</button>`).join('')}</div>
-  ${list.length?'<p class="note swhint">Tipp: Eintrag nach links wischen zum Löschen.</p>':''}<div id="pl">${list.length?list.map(p=>swipeWrap(p.id,`<div class="item" data-p="${p.id}"><div style="min-width:0;flex:1"><div class="t">${esc(p.name)}</div><div class="s">${esc([p.kunde,p.ort].filter(Boolean).join(' · ')||'—')}</div><div class="row" style="margin-top:5px"><span class="pill st-${esc(p.status)}">${esc(p.status)}</span><span class="pill">${(p.pos||[]).length} Pos.</span><span class="pill">${(p.iso||[]).length} Iso</span></div></div><button class="pdel" data-pd="${p.id}" aria-label="Projekt löschen" style="font-size:18px;padding:6px">🗑</button><div class="chev">›</div></div>`,'card cardsw')).join(''):`<div class="empty">${all.length?'Keine Treffer.':'Noch keine Projekte.<br>Lege dein erstes Projekt mit „+ Neu“ an.'}</div>`}</div>`;
+  ${list.length?'<p class="note swhint">Tipp: Eintrag nach links wischen zum Löschen.</p>':''}<div id="pl">${list.length?list.map(p=>swipeWrap(p.id,`<div class="item" data-p="${p.id}"><div style="min-width:0;flex:1"><div class="t">${esc(p.name)}</div><div class="s">${esc([p.kunde,p.ort].filter(Boolean).join(' · ')||'—')}</div><div class="row" style="margin-top:5px"><span class="pill st-${esc(p.status)}">${esc(p.status)}</span><span class="pill">${allPos(p).length} Pos.</span><span class="pill">${(p.iso||[]).length} Iso</span></div></div><button class="pdel" data-pd="${p.id}" aria-label="Projekt löschen" style="font-size:18px;padding:6px">🗑</button><div class="chev">›</div></div>`,'card cardsw')).join(''):`<div class="empty">${all.length?'Keine Treffer.':'Noch keine Projekte.<br>Lege dein erstes Projekt mit „+ Neu“ an.'}</div>`}</div>`;
   $('#np').onclick=()=>{const p=newProject();UI.proj=p.id;render();setTimeout(()=>{const e=$('[data-pf="name"]'),ae=document.activeElement;if(e&&(!ae||ae===document.body||ae.id==='np')){e.focus();e.select()}},50)};
   $('#q').oninput=e=>{UI.q=e.target.value;const pos=e.target.selectionStart;rProjekte(a);const n=$('#q');n.focus();n.setSelectionRange(pos,pos)};
   a.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{UI.filter=b.dataset.f;render()});
@@ -518,7 +518,7 @@ function rProjekt(a,p){
     <label class="f" style="grid-column:1/-1"><span>Rechnungs-Nr. <em>(optional – erscheint im PDF als „Anlage zur Rechnung“)</em></span><input data-pf="rechnr" value="${esc(p.rechnr||'')}" autocomplete="off"></label></div>
     <label class="f"><span>Notizen (Ansprechpartner, Zugang, Besonderheiten)</span><textarea data-pf="notiz">${esc(p.notiz)}</textarea></label>
   </div>
-  <div class="card item" id="toA"><div class="ico" style="background:#fde8de">📐</div><div><div class="t">Aufmaß</div><div class="s">${(p.pos||[]).length} Positionen</div></div><div class="chev">›</div></div>
+  <div class="card item" id="toA"><div class="ico" style="background:#fde8de">📐</div><div><div class="t">Aufmaß</div><div class="s">${aufmOf(p).length} Aufmaß · ${allPos(p).length} Positionen</div></div><div class="chev">›</div></div>
   <div class="card item" id="toS"><div class="ico" style="background:#e6f2e9">🕒</div><div><div class="t">Stundennachweise</div><div class="s">${Object.values(ST.items).filter(s=>s.projId===p.id).length} zugeordnet · kommen mit ins Projekt-PDF</div></div><div class="chev">›</div></div>
   <div class="card item" id="toI"><div class="ico" style="background:#fff3d6">🧊</div><div><div class="t">Isometrien</div><div class="s">${(p.iso||[]).length} Zeichnung(en)</div></div><div class="chev">›</div></div>
   <h3>Fotos ${p.fotos.length?`<span class="pill">${p.fotos.length}</span>`:''}</h3>
@@ -538,7 +538,7 @@ function rProjekt(a,p){
   const re=()=>rProjekt(a,p);
   a.querySelector('.back').onclick=()=>{UI.proj=null;UI._dp=null;PEND.tb=[];render()};
   a.querySelectorAll('[data-pf]').forEach(e=>{e.addEventListener(e.tagName==='SELECT'||e.type==='date'?'change':'input',()=>{p[e.dataset.pf]=e.value;saveProject(p)})});
-  $('#toA').onclick=()=>{UI.aproj=p.id;location.hash='aufmass'};
+  $('#toA').onclick=()=>{UI.aproj=p.id;UI.asheet=null;location.hash='aufmass'};
   $('#toS').onclick=()=>{UI.stProj=p.id;UI.sheet=null;location.hash='stunden'};
   $('#toI').onclick=()=>{UI.iproj=p.id;UI.idraw=null;location.hash='iso'};
   const addT=()=>{const v=$('#nt').value.trim();if(!v)return;p.aufgaben.push({id:uid(),t:v,done:false,fotos:[]});$('#nt').value='';saveProject(p);re();$('#nt').focus()};
@@ -608,40 +608,54 @@ function confirmDel(msg,fotos,go){if(!fotos||!fotos.length){go();return}openShee
 
 function askDeleteProject(p){openSheet(`<h3>Projekt „${esc(p.name)}“ löschen?</h3><p class="note">Das Projekt mit Aufmaß, Isometrien, Fotos, Aufgaben und Bautagebuch wird endgültig entfernt.</p><div class="row"><button class="btn bad" id="y">Endgültig löschen</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{$('#y').onclick=async()=>{closeSheet();const all=[...(p.fotos||[]).map(f=>f.id),...(p.aufgaben||[]).flatMap(t=>t.fotos||[]),...(p.tagebuch||[]).flatMap(t=>t.fotos||[])];
   const pr=deleteProject(p.id);UI.proj=null;UI._dp=null;if(UI.aproj===p.id)UI.aproj=null;if(UI.iproj===p.id){UI.iproj=null;UI.idraw=null}render();toast('Projekt gelöscht');await pr;delAssets(all)}})}
-function projectText(p){let t=`PROJEKT: ${p.name}\nKunde: ${p.kunde||'-'}\nOrt: ${p.ort||'-'}\nStatus: ${p.status}  Datum: ${dDE(p.datum)}\n`;if(p.notiz)t+=`\nNotizen:\n${p.notiz}\n`;if((p.fotos||[]).length)t+=`Fotos: ${p.fotos.length}\n`;if((p.aufgaben||[]).length)t+=`\nAufgaben/Mängel:\n`+p.aufgaben.map(x=>`[${x.done?'x':' '}] ${x.t}`).join('\n')+'\n';if((p.pos||[]).length)t+='\n'+aufmassText(p);if((p.tagebuch||[]).length)t+=`\nBautagebuch:\n`+p.tagebuch.map(e=>`${dDE(e.d)}: ${e.t}`).join('\n');return t}
+function projectText(p){let t=`PROJEKT: ${p.name}\nKunde: ${p.kunde||'-'}\nOrt: ${p.ort||'-'}\nStatus: ${p.status}  Datum: ${dDE(p.datum)}\n`;if(p.notiz)t+=`\nNotizen:\n${p.notiz}\n`;if((p.fotos||[]).length)t+=`Fotos: ${p.fotos.length}\n`;if((p.aufgaben||[]).length)t+=`\nAufgaben/Mängel:\n`+p.aufgaben.map(x=>`[${x.done?'x':' '}] ${x.t}`).join('\n')+'\n';if(allPos(p).length)t+='\n'+aufmassText(p);if((p.tagebuch||[]).length)t+=`\nBautagebuch:\n`+p.tagebuch.map(e=>`${dDE(e.d)}: ${e.t}`).join('\n');return t}
 
 /* ---------- Aufmaß ---------- */
 function posTitle(x){return [x.art,x.dn?(/^[0-9]/.test(x.dn)?'Ø '+x.dn:x.dn):'',x.s?('s='+x.s+' mm'):''].filter(Boolean).join(' · ')}
 function posGP(x){return num(x.menge)*(num(x.faktor)||1)*num(x.ep)}
 function aufmassText(p){let t=`AUFMASS – ${p.name}\n`;
-  GEWERKE.forEach(g=>{const ps=p.pos.filter(x=>x.gewerk===g);if(!ps.length)return;t+=`\n${g}:\n`;ps.forEach((x,i)=>{t+=`${i+1}. ${posTitle(x)}${x.mat?' – '+x.mat:''}${x.bez?' – '+x.bez:''}\n   ${fmt(num(x.menge),2)} ${x.einheit}\n`})});return t}
+  GEWERKE.forEach(g=>{const ps=allPos(p).filter(x=>x.gewerk===g);if(!ps.length)return;t+=`\n${g}:\n`;ps.forEach((x,i)=>{t+=`${i+1}. ${posTitle(x)}${x.mat?' – '+x.mat:''}${x.bez?' – '+x.bez:''}\n   ${fmt(num(x.menge),2)} ${x.einheit}\n`})});return t}
 function csv(p){const h=['Nr','Gewerk','Art','DN / Ø','Dämmdicke mm','Material','Bemerkung','Menge','Einheit'];const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';const f=n=>String(Math.round(n*100)/100).replace('.',',');
-  return '﻿'+[h.join(';'),...p.pos.map((x,i)=>[i+1,x.gewerk,x.art,x.dn,x.s,x.mat,x.bez,f(num(x.menge)),x.einheit].map(q).join(';'))].join('\r\n')}
+  return '﻿'+[h.join(';'),...allPos(p).map((x,i)=>[i+1,x.gewerk,x.art,x.dn,x.s,x.mat,x.bez,f(num(x.menge)),x.einheit].map(q).join(';'))].join('\r\n')}
+function aufmOf(p){if(!Array.isArray(p.aufm)){p.aufm=(p.pos&&p.pos.length)?[{id:uid(),name:'Aufmaß 1',datum:p.datum||today(),pos:p.pos}]:[];delete p.pos}p.aufm.forEach(x=>x.pos=x.pos||[]);return p.aufm}
+const allPos=p=>aufmOf(p).flatMap(x=>x.pos);
+const aufmSorted=p=>aufmOf(p).slice().sort((a,b)=>(a.datum||'').localeCompare(b.datum||'')||0);
+function newAufm(p){const L=aufmOf(p);const A={id:uid(),name:'Aufmaß '+(L.length+1),datum:today(),pos:[]};L.push(A);return A}
+function aufmEdit(p,A){openSheet(`<h3 style="margin-top:0">Aufmaß bearbeiten</h3><div class="grid2"><label class="f"><span>Bezeichnung</span><input id="an_" value="${esc(A.name)}" autocomplete="off"></label><label class="f"><span>Datum</span><input type="date" id="ad_" value="${esc(A.datum||'')}"></label></div><div class="row"><button class="btn" id="ok">Speichern</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{$('#ok').onclick=()=>{A.name=$('#an_').value.trim()||A.name;A.datum=$('#ad_').value||A.datum;saveProject(p);closeSheet();render()}})}
+function askDelAufm(p,A){openSheet(`<h3>„${esc(A.name)}“ (${dDE(A.datum)}) löschen?</h3><p class="note">${A.pos.length} Position(en) werden entfernt.</p><div class="row"><button class="btn bad" id="y">Löschen</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{$('#y').onclick=()=>{const L=aufmOf(p);const i=L.indexOf(A);if(i<0)return;L.splice(i,1);if(UI.asheet===A.id)UI.asheet=null;saveProject(p);closeSheet();render();undoToast('Aufmaß gelöscht',()=>{L.splice(Math.min(i,L.length),0,A);saveProject(p);render()})}})}
 function rAufmass(a){
   const p=UI.aproj&&S.projects[UI.aproj];
   if(!p){const all=Object.values(S.projects).sort((x,y)=>(y.updated||0)-(x.updated||0));
-    a.innerHTML=`<h2>Aufmaß</h2><p class="note" style="margin-top:-6px;margin-bottom:12px">Projekt wählen oder neu anlegen.</p>${all.map(p=>swipeWrap(p.id,`<div class="item" data-p="${p.id}"><div style="flex:1"><div class="t">${esc(p.name)}</div><div class="s">${(p.pos||[]).length} Positionen · ${(p.iso||[]).length} Isometrie(n)</div></div><button class="tbtn" data-del="${p.id}" aria-label="Löschen" type="button">🗑</button><div class="chev">›</div></div>`,'card cardsw')).join('')}${all.length?'<p class="note swhint">Tipp: Eintrag nach links wischen zum Löschen.</p>':''}<button class="btn full" id="np">+ Neues Projekt mit Aufmaß</button>`;
+    a.innerHTML=`<h2>Aufmaß</h2><p class="note" style="margin-top:-6px;margin-bottom:12px">Projekt wählen oder neu anlegen.</p>${all.map(p=>swipeWrap(p.id,`<div class="item" data-p="${p.id}"><div style="flex:1"><div class="t">${esc(p.name)}</div><div class="s">${aufmOf(p).length} Aufmaß · ${allPos(p).length} Positionen · ${(p.iso||[]).length} Isometrie(n)</div></div><button class="tbtn" data-del="${p.id}" aria-label="Löschen" type="button">🗑</button><div class="chev">›</div></div>`,'card cardsw')).join('')}${all.length?'<p class="note swhint">Tipp: Eintrag nach links wischen zum Löschen.</p>':''}<button class="btn full" id="np">+ Neues Projekt mit Aufmaß</button>`;
     a.querySelectorAll('[data-p]').forEach(e=>e.onclick=ev=>{if(ev.target.closest('.tbtn'))return;UI.aproj=e.dataset.p;render()});
-    const delA=id=>{const p=S.projects[id];if(!p)return;openSheet(`<h3>„${esc(p.name)}“ – was löschen?</h3><div class="row" style="flex-direction:column;align-items:stretch"><button class="btn sec" id="d1">Nur das Aufmaß leeren (${(p.pos||[]).length} Positionen)</button><button class="btn bad" id="d2">Ganzes Projekt löschen</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{$('#d1').onclick=()=>{const old=p.pos||[];p.pos=[];saveProject(p);closeSheet();render();undoToast('Aufmaß geleert',()=>{p.pos=old;saveProject(p);render()})};$('#d2').onclick=()=>{closeSheet();askDeleteProject(p)}})};
+    const delA=id=>{const p=S.projects[id];if(!p)return;openSheet(`<h3>„${esc(p.name)}“ – was löschen?</h3><div class="row" style="flex-direction:column;align-items:stretch"><button class="btn sec" id="d1">Alle Aufmaße löschen (${aufmOf(p).length})</button><button class="btn bad" id="d2">Ganzes Projekt löschen</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{$('#d1').onclick=()=>{const old=aufmOf(p);p.aufm=[];saveProject(p);closeSheet();render();undoToast('Aufmaße gelöscht',()=>{p.aufm=old;saveProject(p);render()})};$('#d2').onclick=()=>{closeSheet();askDeleteProject(p)}})};
     a.querySelectorAll('.tbtn[data-del]').forEach(b=>b.onclick=ev=>{ev.stopPropagation();delA(b.dataset.del)});initSwipe(a,delA);
-    $('#np').onclick=()=>{const p=newProject();UI.aproj=p.id;render()};return}
-  p.pos=p.pos||[];
-  const groups=GEWERKE.map(g=>[g,p.pos.filter(x=>x.gewerk===g)]).filter(x=>x[1].length);
-  a.innerHTML=`<button class="back">‹ Projekt wechseln</button><h2 style="margin-bottom:2px">${esc(p.name)}</h2><div class="note" style="margin:0 0 12px">${esc([p.kunde,p.ort].filter(Boolean).join(' · '))}</div>
+    $('#np').onclick=()=>{const p=newProject();UI.aproj=p.id;UI.asheet=newAufm(p).id;saveProject(p);render()};return}
+  const AL=aufmOf(p);const A=UI.asheet&&AL.find(x=>x.id===UI.asheet);
+  if(!A){UI.asheet=null;const ls=aufmSorted(p).reverse();
+   a.innerHTML=`<button class="back">‹ Projekt wechseln</button><h2 style="margin-bottom:2px">${esc(p.name)}</h2><div class="note" style="margin:0 0 12px">${esc([p.kunde,p.ort].filter(Boolean).join(' · '))}</div>
+   <button class="btn full" id="na" style="margin-bottom:12px">+ Neues Aufmaß (${dDE(today())})</button>
+   ${ls.length?ls.map(x=>swipeWrap(x.id,`<div class="item" data-a="${x.id}"><div class="ico" style="background:#fde8de">📐</div><div style="flex:1;min-width:0"><div class="t">${esc(x.name)}</div><div class="s">${dDE(x.datum)} · ${x.pos.length} Position(en)</div></div><div class="chev">›</div></div>`,'card cardsw')).join('')+'<p class="note swhint">Jedes Aufmaß wird getrennt gespeichert. Das Projekt-PDF enthält alle. Nach links wischen zum Löschen.</p>':'<div class="card empty">Noch kein Aufmaß in diesem Projekt.</div>'}`;
+   a.querySelector('.back').onclick=()=>{UI.aproj=null;render()};
+   $('#na').onclick=()=>{const n=newAufm(p);saveProject(p);UI.asheet=n.id;render();window.scrollTo(0,0)};
+   a.querySelectorAll('[data-a]').forEach(e=>e.onclick=()=>{UI.asheet=e.dataset.a;render();window.scrollTo(0,0)});
+   initSwipe(a,id=>{const x=AL.find(z=>z.id===id);if(x)askDelAufm(p,x)});return}
+  const groups=GEWERKE.map(g=>[g,A.pos.filter(x=>x.gewerk===g)]).filter(x=>x[1].length);
+  a.innerHTML=`<button class="back">‹ Alle Aufmaße · ${esc(p.name)}</button><div class="row" style="align-items:center;justify-content:space-between;margin:2px 0 12px"><div><h2 style="margin:0">${esc(A.name)}</h2><div class="note" style="margin:0">${dDE(A.datum)}${p.kunde||p.ort?' · '+esc([p.kunde,p.ort].filter(Boolean).join(' · ')):''}</div></div><button class="btn sec" id="ae">✏️ Ändern</button></div>
   <button class="btn full" id="add" style="margin-bottom:12px">+ Position erfassen</button>
   ${groups.length?groups.map(([g,ps])=>`<h3><span class="pill g-${g}">${g}</span> <span class="note">${ps.length} Position(en)</span></h3><div class="card">${ps.map(x=>swipeWrap(x.id,`<div class="pos" data-x="${x.id}"><div class="m"><div class="t">${esc(posTitle(x))}</div><div class="s">${esc([x.mat,x.bez].filter(Boolean).join(' · '))}</div></div><div class="p">${fmt(num(x.menge),num(x.menge)%1?2:0)} ${esc(x.einheit)}</div><button class="tbtn" data-delp="${x.id}" aria-label="Löschen" type="button">🗑</button></div>`,'swpos')).join('')}</div>`).join(''):'<div class="card empty">Noch keine Positionen erfasst.</div>'}
   <div class="row"><button class="btn" id="apdf">📄 PDF: Aufmaß</button></div>
-  <p class="note">Nur das Aufmaß, ohne Preise. Das komplette PDF mit Isometrie und Fotos erstellst du im Projekt.</p>
+  <p class="note">Nur dieses Aufmaß, ohne Preise. Das komplette PDF mit allen Aufmaßen, Isometrien und Fotos erstellst du im Projekt.</p>
 `;
-  $('#apdf').onclick=()=>aufmassPdf(p,'aufmass').catch(e=>toast('PDF fehlgeschlagen'));
-  a.querySelector('.back').onclick=()=>{UI.aproj=null;render()};
-  $('#add').onclick=()=>posForm(p,null);
-  a.querySelectorAll('[data-x]').forEach(e=>e.onclick=ev=>{if(ev.target.closest('.tbtn'))return;posForm(p,p.pos.find(x=>x.id===e.dataset.x))});
-  const delP=id=>{const i=p.pos.findIndex(x=>x.id===id);if(i<0)return;const old=p.pos[i];p.pos.splice(i,1);saveProject(p);render();undoToast('Position gelöscht',()=>{p.pos.splice(Math.min(i,p.pos.length),0,old);saveProject(p);render()})};
+  $('#apdf').onclick=()=>aufmassPdf(p,'aufmass',A).catch(e=>toast('PDF fehlgeschlagen'));
+  a.querySelector('.back').onclick=()=>{UI.asheet=null;render()};$('#ae').onclick=()=>aufmEdit(p,A);
+  $('#add').onclick=()=>posForm(p,null,A);
+  a.querySelectorAll('[data-x]').forEach(e=>e.onclick=ev=>{if(ev.target.closest('.tbtn'))return;posForm(p,A.pos.find(x=>x.id===e.dataset.x),A)});
+  const delP=id=>{const i=A.pos.findIndex(x=>x.id===id);if(i<0)return;const old=A.pos[i];A.pos.splice(i,1);saveProject(p);render();undoToast('Position gelöscht',()=>{A.pos.splice(Math.min(i,A.pos.length),0,old);saveProject(p);render()})};
   a.querySelectorAll('.tbtn[data-delp]').forEach(b=>b.onclick=ev=>{ev.stopPropagation();delP(b.dataset.delp)});initSwipe(a,delP);
 }
 let lastPos=lsGet('isopro_lastpos',{gewerk:'Wärme',art:'Rohr',einheit:'lfm',mat:'',s:'',dn:'',ep:'',faktor:'1'});
-function posForm(p,x){
+function posForm(p,x,A){A=A||aufmOf(p)[0]||newAufm(p);
   const isNew=!x;const v=x?{...x}:{...lastPos,id:uid(),menge:'',bez:''};
   const dnOpts=`<option value="">– wählen –</option>${DN_STAHL.map(([n,d])=>`<option value="DN ${n} (${fmt(d,1)})">DN ${n} – ${fmt(d,1)} mm</option>`).join('')}${CU.map(d=>`<option value="Cu ${fmt(d,d%1?1:0)}">Cu ${fmt(d,d%1?1:0)} mm</option>`).join('')}`;
   openSheet(`<h3 style="margin-top:0">${isNew?'Neue Position':'Position bearbeiten'}</h3>
@@ -664,14 +678,14 @@ function posForm(p,x){
     F('art').onchange=()=>{const u=(ARTEN.find(a=>a[0]===F('art').value)||[])[1];if(u)F('einheit').value=u};
     const collect=()=>{['art','einheit','dn','s','mat','bez','menge'].forEach(k=>v[k]=F(k).value.trim());return v};
     const commit=again=>{collect();if(!num(v.menge)){F('menge').focus();toast('Bitte Menge eingeben');return}
-      if(isNew)p.pos.push({...v});else{const i=p.pos.findIndex(y=>y.id===v.id);p.pos[i]={...v}}
+      if(isNew)A.pos.push({...v});else{const i=A.pos.findIndex(y=>y.id===v.id);A.pos[i]={...v}}
       lastPos={gewerk:v.gewerk,art:v.art,einheit:v.einheit,mat:v.mat,s:v.s,dn:v.dn,ep:v.ep,faktor:v.faktor};lsSet('isopro_lastpos',lastPos);
       saveProject(p);render();
-      if(again){closeSheet();posForm(p,null);setTimeout(()=>$('#f_menge')&&$('#f_menge').focus(),60);toast('Position hinzugefügt')}else closeSheet()};
+      if(again){closeSheet();posForm(p,null,A);setTimeout(()=>$('#f_menge')&&$('#f_menge').focus(),60);toast('Position hinzugefügt')}else closeSheet()};
     $('#sv').onclick=()=>commit(false);
     if($('#sv2'))$('#sv2').onclick=()=>commit(true);
-    if($('#dup'))$('#dup').onclick=()=>{collect();p.pos.push({...v,id:uid()});saveProject(p);render();closeSheet();toast('Position dupliziert')};
-    if($('#rm'))$('#rm').onclick=()=>{p.pos=p.pos.filter(y=>y.id!==v.id);saveProject(p);render();closeSheet();toast('Position gelöscht')};
+    if($('#dup'))$('#dup').onclick=()=>{collect();A.pos.push({...v,id:uid()});saveProject(p);render();closeSheet();toast('Position dupliziert')};
+    if($('#rm'))$('#rm').onclick=()=>{A.pos=A.pos.filter(y=>y.id!==v.id);saveProject(p);render();closeSheet();toast('Position gelöscht')};
     if(isNew)setTimeout(()=>{const e=F('menge');if(e)e.focus()},60);
   });
 }
@@ -949,7 +963,7 @@ function rIso(a){
   const delI=id=>{const p=S.projects[id];if(!p)return;openSheet(`<h3>„${esc(p.name)}“ – was löschen?</h3><div class="row" style="flex-direction:column;align-items:stretch"><button class="btn sec" id="d1">Nur die Isometrien löschen (${(p.iso||[]).length})</button><button class="btn bad" id="d2">Ganzes Projekt löschen</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{$('#d1').onclick=()=>{const old=p.iso||[];p.iso=[];saveProject(p);closeSheet();render();undoToast('Isometrien gelöscht',()=>{p.iso=old;saveProject(p);render()})};$('#d2').onclick=()=>{closeSheet();askDeleteProject(p)}})};
   a.querySelectorAll('.tbtn[data-del]').forEach(b=>b.onclick=ev=>{ev.stopPropagation();delI(b.dataset.del)});initSwipe(a,delI);$('#np').onclick=()=>{const p=newProject();UI.iproj=p.id;render()};return}
  p.iso=p.iso||[];const d=UI.idraw&&p.iso.find(x=>x.id===UI.idraw);
- if(!d){a.innerHTML=`<button class="back">‹ Projekt wechseln</button><h2>${esc(p.name)}</h2>${p.iso.map(d=>swipeWrap(d.id,`<div class="item" data-d="${d.id}"><div class="ico" style="background:#fff3d6">📐</div><div style="flex:1"><div class="t">${esc(d.name)}</div><div class="s">${esc(d.gewerk)} · ${d.segs.length} Leitungsabschnitte · ${d.syms.length} Symbole</div></div><button class="tbtn" data-deld="${d.id}" aria-label="Löschen" type="button">🗑</button><div class="chev">›</div></div>`,'card cardsw')).join('')||'<div class="card empty">Noch keine Isometrie.</div>'}<button class="btn full" id="nd">+ Neue Isometrie</button>`;
+ if(!d){a.innerHTML=`<button class="back">‹ Projekt wechseln</button><h2>${esc(p.name)}</h2>${p.iso.map(d=>swipeWrap(d.id,`<div class="item" data-d="${d.id}"><div class="ico" style="background:#fff3d6">📐</div><div style="flex:1"><div class="t">${esc(d.name)}</div><div class="s">${d.datum?dDE(d.datum)+' · ':''}${esc(d.gewerk)} · ${d.segs.length} Leitungsabschnitte · ${d.syms.length} Symbole</div></div><button class="tbtn" data-deld="${d.id}" aria-label="Löschen" type="button">🗑</button><div class="chev">›</div></div>`,'card cardsw')).join('')||'<div class="card empty">Noch keine Isometrie.</div>'}<button class="btn full" id="nd">+ Neue Isometrie</button>`;
   a.querySelector('.back').onclick=()=>{UI.iproj=null;render()};
   a.querySelectorAll('[data-d]').forEach(e=>e.onclick=ev=>{if(ev.target.closest('.tbtn'))return;UI.idraw=e.dataset.d;render()});
   a.querySelectorAll('.tbtn[data-deld]').forEach(b=>b.onclick=ev=>{ev.stopPropagation();const d=p.iso.find(x=>x.id===b.dataset.deld);if(d)askDelDrawing(p,d)});
@@ -1097,7 +1111,7 @@ function textSheet(p,d,t){const key='t:'+t.id;openSheet(`<h3 style="margin-top:0
 function askDelDrawing(p,d){openSheet(`<h3>„${esc(d.name)}“ löschen?</h3><p class="note">Die Zeichnung wird endgültig entfernt. Bereits übernommene Aufmaß-Positionen bleiben erhalten.</p><div class="row"><button class="btn bad" id="y">Endgültig löschen</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{$('#y').onclick=()=>{p.iso=p.iso.filter(x=>x.id!==d.id);saveProject(p);UI.idraw=null;closeSheet();render();toast('Zeichnung gelöscht')}})}
 function isoDelSeg(p,d,id){isoPush(d);d.segs=d.segs.filter(x=>x.id!==id);d.syms=d.syms.filter(y=>y.seg!==id);delete d.lb['g:'+id];delete d.lb['n:'+id];if(IED.sel===id)IED.sel=null;const mark=IED.undo[IED.undo.length-1];saveProject(p);isoDraw(p,d);undoToast('Position gelöscht',()=>{if(IED.undo[IED.undo.length-1]!==mark){toast('Rückgängig nicht mehr möglich – bitte ↶ nutzen');return}IED.undo.pop();Object.assign(d,JSON.parse(mark));saveProject(p);isoDraw(p,d)})}
 function isoSettings(p,d){openSheet(`<h3 style="margin-top:0">Zeichnung</h3>
- <label class="f"><span>Name</span><input id="dn_" value="${esc(d.name)}"></label>
+ <div class="grid2"><label class="f"><span>Name</span><input id="dn_" value="${esc(d.name)}"></label><label class="f"><span>Datum</span><input type="date" id="dt_" value="${esc(d.datum||today())}"></label></div>
  <label class="f"><span>Gewerk</span><div class="chips" id="gw2">${GEWERKE.map(g=>`<button type="button" data-g="${g}" class="${d.gewerk===g?'on':''}">${g}</button>`).join('')}</div></label>
  <div class="grid2"><label class="f"><span>Standard DN / Ø</span><input id="dd_" data-dnf inputmode="decimal" value="${esc(d.dn)}" placeholder="z. B. DN 50 oder 60,3" autocomplete="off"></label>
  <label class="f"><span>Standard-Dämmdicke [mm]</span><input id="ds_" inputmode="decimal" value="${esc(d.s)}"></label></div>
@@ -1110,19 +1124,22 @@ function isoSettings(p,d){openSheet(`<h3 style="margin-top:0">Zeichnung</h3>
  $('#rsE').onclick=()=>{isoPush(d);d.endm={};saveProject(p);isoDraw(p,d);toast('Anfang/Ende automatisch')};
  $('#rsL').onclick=()=>{isoPush(d);d.lb={};(d.texts||[]).forEach(t=>t.r=0);saveProject(p);isoDraw(p,d);toast('Beschriftungen zurückgesetzt')};
  let gw=d.gewerk;document.querySelectorAll('#gw2 [data-g]').forEach(b=>b.onclick=()=>{gw=b.dataset.g;document.querySelectorAll('#gw2 [data-g]').forEach(c=>c.classList.toggle('on',c===b))});
- $('#ok').onclick=()=>{d.name=$('#dn_').value.trim()||d.name;d.gewerk=gw;d.dn=$('#dd_').value.trim();d.s=$('#ds_').value.trim();d.showA=$('#da_').checked;d.showPos=$('#dp_').checked;d.showK=$('#dk_').checked;d.ends=$('#de_').checked;saveProject(p);closeSheet();render()};
+ $('#ok').onclick=()=>{d.name=$('#dn_').value.trim()||d.name;d.datum=$('#dt_').value||d.datum||today();d.gewerk=gw;d.dn=$('#dd_').value.trim();d.s=$('#ds_').value.trim();d.showA=$('#da_').checked;d.showPos=$('#dp_').checked;d.showK=$('#dk_').checked;d.ends=$('#de_').checked;saveProject(p);closeSheet();render()};
  $('#rm').onclick=()=>openSheet(`<h3>„${esc(d.name)}“ löschen?</h3><p class="note">Die Zeichnung wird endgültig entfernt. Bereits übernommene Aufmaß-Positionen bleiben erhalten.</p><div class="row"><button class="btn bad" id="y">Endgültig löschen</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{$('#y').onclick=()=>{p.iso=p.iso.filter(x=>x.id!==d.id);saveProject(p);UI.idraw=null;closeSheet();render();toast('Zeichnung gelöscht')}})})}
 function isoBomRender(p,d){const el=$('#bom');if(!el)return;const {rows,miss}=isoBom(d);
  el.innerHTML=`<div class="row" style="justify-content:space-between;margin-bottom:6px"><b>Stückliste</b><span class="note" style="margin:0">automatisch aus der Zeichnung</span></div>${rows.length?rows.map(r=>`<div class="bomrow"><span>${esc(r.art)}${r.dn?' · '+esc(r.dn):''}${r.s?' · '+esc(r.s)+' mm':''}</span><b>${r.einheit==='lfm'?Math.round(r.menge*1000)+' mm <span class="note" style="font-weight:400">('+fmt(r.menge,2)+' lfm)</span>':r.menge+' '+r.einheit}</b></div>`).join(''):'<div class="note">Noch nichts gezeichnet.</div>'}${miss?`<div class="warnbox" style="margin:8px 0 0">${miss} Position(en) ohne Länge – in der Positionsliste unter der Zeichnung eintragen.</div>`:''}`}
 function isoToAufmass(p,d){const {rows,miss}=isoBom(d);const use=rows.filter(r=>r.menge>0);if(!use.length){toast('Keine Mengen vorhanden');return}
- openSheet(`<h3 style="margin-top:0">Ins Aufmaß übernehmen</h3><p class="note" style="margin-top:-6px">${use.length} Positionen als Gewerk <b>${esc(d.gewerk)}</b>. Positionen, die schon aus dieser Zeichnung übernommen wurden, werden aktualisiert – eingetragene Einheitspreise bleiben erhalten.${miss?` <b>${miss} Abschnitt(e) ohne Länge werden nicht mitgezählt.</b>`:''}</p>
+ const AL=aufmSorted(p).reverse();const hit=AL.find(x=>x.pos.some(y=>y.src===d.id));const td=AL.find(x=>x.datum===today());const def=hit?hit.id:td?td.id:'new';
+ openSheet(`<h3 style="margin-top:0">Ins Aufmaß übernehmen</h3><p class="note" style="margin-top:-6px">${use.length} Positionen als Gewerk <b>${esc(d.gewerk)}</b>.${miss?` <b>${miss} Abschnitt(e) ohne Länge werden nicht mitgezählt.</b>`:''}</p>
+ <label class="f"><span>In welches Aufmaß?</span><select id="ta_"><option value="new" ${def==='new'?'selected':''}>+ Neues Aufmaß (${dDE(today())})</option>${AL.map(x=>`<option value="${x.id}" ${def===x.id?'selected':''}>${esc(x.name)} · ${dDE(x.datum)} (${x.pos.length} Pos.)</option>`).join('')}</select></label>
+ <p class="note">Jedes Aufmaß bleibt getrennt gespeichert. Wurde diese Zeichnung schon ins gewählte Aufmaß übernommen, werden die Positionen dort aktualisiert.</p>
  <div class="row"><button class="btn" id="ok">Übernehmen</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{
- $('#ok').onclick=()=>{p.pos=p.pos||[];const old={};p.pos.filter(x=>x.src===d.id).forEach(x=>old[x.isoKey]=x);p.pos=p.pos.filter(x=>x.src!==d.id);
-  use.forEach(r=>{const o=old[r.k];p.pos.push({id:o?o.id:uid(),gewerk:d.gewerk,art:r.art,einheit:r.einheit,dn:r.dn||'',s:r.s||'',mat:o?o.mat:'',bez:'Iso: '+d.name,menge:String(r2(r.menge)).replace('.',','),faktor:o?o.faktor:'1',ep:o?o.ep:'',src:d.id,isoKey:r.k})});
-  saveProject(p);closeSheet();toast('Ins Aufmaß übernommen');UI.aproj=p.id;location.hash='aufmass'}})}
+ $('#ok').onclick=()=>{const v=$('#ta_').value;const T=v==='new'?newAufm(p):aufmOf(p).find(x=>x.id===v);if(!T)return;const old={};T.pos.filter(x=>x.src===d.id).forEach(x=>old[x.isoKey]=x);T.pos=T.pos.filter(x=>x.src!==d.id);
+  use.forEach(r=>{const o=old[r.k];T.pos.push({id:o?o.id:uid(),gewerk:d.gewerk,art:r.art,einheit:r.einheit,dn:r.dn||'',s:r.s||'',mat:o?o.mat:'',bez:'Iso: '+d.name,menge:String(r2(r.menge)).replace('.',','),faktor:o?o.faktor:'1',ep:o?o.ep:'',src:d.id,isoKey:r.k})});
+  saveProject(p);closeSheet();toast('Ins Aufmaß übernommen: '+T.name);UI.aproj=p.id;UI.asheet=T.id;location.hash='aufmass'}})}
 function isoDomBBox(d){try{const ns='http://www.w3.org/2000/svg';const s=document.createElementNS(ns,'svg');s.setAttribute('style','position:absolute;left:-9999px;top:0;width:10px;height:10px;visibility:hidden');s.innerHTML=`<style>${ISO_STYLE}</style><g>${isoContent(d)}</g>`;document.body.appendChild(s);const bb=s.querySelector('g').getBBox();s.remove();if(!bb.width)return null;return{x0:bb.x-14,y0:bb.y-14,x1:bb.x+bb.width+14,y1:bb.y+bb.height+14}}catch(e){return null}}
 function isoExportSVG(p,d){IED.lsel=null;const b=isoDomBBox(d)||isoBBox(d)||{x0:-100,y0:-60,x1:100,y1:60};
- const l2=[p.kunde,p.ort].filter(Boolean).join(' · '),l3=['Maße in mm','Gewerk: '+d.gewerk,d.dn?'Standard '+d.dn:'',d.s?'Dämmdicke '+d.s+' mm':'',dDE(today())].filter(Boolean).join(' · ');
+ const l2=[p.kunde,p.ort].filter(Boolean).join(' · '),l3=['Maße in mm','Gewerk: '+d.gewerk,d.dn?'Standard '+d.dn:'',d.s?'Dämmdicke '+d.s+' mm':'',dDE(d.datum||today())].filter(Boolean).join(' · ');
  const W=Math.max(b.x1-b.x0,420,(d.name+' – '+p.name).length*7.2+20,l2.length*5.2+20,l3.length*5.2+20);const {rows}=isoBom(d);
  const used=[...new Set([...fittings(d).map(f=>f.t),...d.syms.map(y=>y.type)])];
  const legH=Math.ceil(used.length/2)*22+(used.length?26:0);const bomH=rows.length*13+26;const headH=l2?56:46;
@@ -1494,27 +1511,27 @@ function pdfHeader(d,title,p,extra){const x=d.ctx,M=d.M,W=d.W;const ty=pdfLetter
  const colW=(W-2*M)/3,rows=Math.ceil(info.length/3),RH=40,bh=rows*RH+8;d.rect(M,d.y,W-2*M,bh,'#f4f2ee');
  info.forEach((it,i)=>{const cx=M+10+(i%3)*colW,cy=d.y+16+Math.floor(i/3)*RH;d.text(it[0].toUpperCase(),cx,cy,{size:6.5,color:'#69707a',bold:true});let ls=d.wrap(it[1],colW-16,9,true);if(ls.length>2){ls=ls.slice(0,2);let l=ls[1];d.font(9,'bold');while(l.length>2&&d.ctx.measureText(l+'…').width>colW-16)l=l.slice(0,-1);ls[1]=l+'…'}ls.forEach((t,li)=>d.text(t,cx,cy+12+li*11,{size:9,bold:true}))});
  d.y+=bh+16}
-async function aufmassPdf(p,mode='full'){const full=mode==='full';toast('PDF wird erstellt …');await new Promise(r=>setTimeout(r,30));
- const d=PdfDoc(false);d.logo=await loadImg((S.firma||{}).logo);d.newPage();const M=d.M,W=d.W;const pos=p.pos||[];
+async function aufmassPdf(p,mode='full',A){const full=mode==='full';toast('PDF wird erstellt …');await new Promise(r=>setTimeout(r,30));
+ const d=PdfDoc(false);d.logo=await loadImg((S.firma||{}).logo);d.newPage();const M=d.M,W=d.W;const sheets=full?aufmSorted(p).filter(x=>x.pos.length):[A||aufmSorted(p).slice(-1)[0]].filter(Boolean);const pos=sheets.flatMap(x=>x.pos);
  const isos=full?(p.iso||[]).filter(z=>z.segs.length):[];
- pdfHeader(d,full?'Projektdokumentation':'Aufmaß',p,[['Positionen',String(pos.length)+(isos.length?' · '+isos.length+' Isometrie(n)':'')]]);
+ pdfHeader(d,full?'Projektdokumentation':'Aufmaß',p,full?[['Aufmaße',sheets.length+' · '+pos.length+' Positionen'+(isos.length?' · '+isos.length+' Isometrie(n)':'')]]:[['Aufmaß',sheets[0]?sheets[0].name+' · '+dDE(sheets[0].datum):'–'],['Positionen',String(pos.length)]]);
  if(full&&p.notiz){d.text('Notizen',M,d.y,{size:10,bold:true});d.y+=13;d.wrap(p.notiz,W-2*M,9).forEach(l=>{d.need(12);d.text(l,M,d.y,{size:9});d.y+=12});d.y+=8}
  const cols=[['Nr',24,'l'],['Bezeichnung',0,'l'],['DN / Ø',70,'l'],['Dämmd. mm',56,'r'],['Menge',60,'r'],['Einheit',44,'l']];
  const fixed=cols.reduce((s,c)=>s+c[1],0);cols[1][1]=W-2*M-fixed;
  const head=(cs)=>{d.rect(M,d.y,W-2*M,16,'#1d2228');let cx=M;cs.forEach(c=>{d.text(c[0],c[2]==='r'?cx+c[1]-4:cx+4,d.y+11,{size:7.5,bold:true,color:'#fff',align:c[2]==='r'?'right':'left'});cx+=c[1]});d.y+=16};
  const row=(cs,vals,i,bold)=>{const lines=d.wrap(vals[1],cs[1][1]-8,8.5);const rh=Math.max(15,lines.length*10.5+5);d.need(rh);if(i%2)d.rect(M,d.y,W-2*M,rh,'#f7f6f3');
   let cx=M;cs.forEach((c,ci)=>{if(ci===1)lines.forEach((l,li)=>d.text(l,cx+4,d.y+11+li*10.5,{size:8.5,bold}));else d.text(vals[ci],c[2]==='r'?cx+c[1]-4:cx+4,d.y+11,{size:8.5,bold:bold||ci===4,align:c[2]==='r'?'right':'left'});cx+=c[1]});d.y+=rh;d.line(M,d.y,W-M,d.y)};
- let nr=0;
  if(!pos.length){d.text('Keine Positionen erfasst.',M,d.y+10,{size:9,color:'#69707a'});d.y+=24}
- GEWERKE.forEach(g=>{const ps=pos.filter(x=>x.gewerk===g);if(!ps.length)return;
+ sheets.forEach(S0=>{let nr=0;if(full){d.need(80);d.rect(M,d.y,W-2*M,20,'#f4f2ee');d.text(S0.name,M+8,d.y+14,{size:11,bold:true});d.text(dDE(S0.datum)+' · '+S0.pos.length+' Position(en)',W-M-8,d.y+14,{size:9,color:'#69707a',align:'right'});d.y+=28}
+ GEWERKE.forEach(g=>{const ps=S0.pos.filter(x=>x.gewerk===g);if(!ps.length)return;
   d.need(60);d.rect(M,d.y,4,16,GCOL[g]);d.text(g,M+10,d.y+12,{size:11,bold:true,color:GCOL[g]});d.y+=22;head(cols);
-  d.onNewPage=()=>{d.text(g+' (Fortsetzung)',M,d.y+10,{size:9,bold:true,color:GCOL[g]});d.y+=16;head(cols)};
+  d.onNewPage=()=>{d.text((full?S0.name+' · ':'')+g+' (Fortsetzung)',M,d.y+10,{size:9,bold:true,color:GCOL[g]});d.y+=16;head(cols)};
   ps.forEach((x,i)=>{nr++;row(cols,[String(nr),[x.art,x.mat,x.bez].filter(Boolean).join(' – '),x.dn||'',x.s||'',fmt(num(x.menge),num(x.menge)%1?2:0),x.einheit||''],i)});
-  d.onNewPage=null;d.y+=14});
+  d.onNewPage=null;d.y+=14});d.y+=4});
  // Zusammenfassung der Mengen
  if(pos.length){const sum={};pos.forEach(x=>{const k=[x.gewerk,x.art,x.dn||'',x.s||'',x.einheit||''].join('|');(sum[k]=sum[k]||{g:x.gewerk,art:x.art,dn:x.dn||'',s:x.s||'',e:x.einheit||'',m:0}).m+=num(x.menge)});
   const sc=[['',24,'l'],['Gewerk / Art',0,'l'],['DN / Ø',70,'l'],['Dämmd. mm',56,'r'],['Menge',60,'r'],['Einheit',44,'l']];sc[1][1]=cols[1][1];
-  d.need(70);d.text('Zusammenfassung der Mengen',M,d.y+4,{size:12,bold:true});d.y+=10;d.line(M,d.y,W-M,d.y,'#1d2228',.8);d.y+=8;head(sc);
+  d.need(70);d.text('Zusammenfassung der Mengen'+(sheets.length>1?' (alle Aufmaße)':''),M,d.y+4,{size:12,bold:true});d.y+=10;d.line(M,d.y,W-M,d.y,'#1d2228',.8);d.y+=8;head(sc);
   d.onNewPage=()=>{head(sc)};Object.values(sum).forEach((s,i)=>row(sc,['',s.g+' – '+s.art,s.dn,s.s,fmt(s.m,s.m%1?2:0),s.e],i));d.onNewPage=null;d.y+=16}
  const sect=(t)=>{d.need(40);d.text(t,M,d.y+4,{size:12,bold:true});d.y+=10;d.line(M,d.y,W-M,d.y,'#1d2228',.8);d.y+=12};
  if(full&&(p.aufgaben||[]).length){sect('Aufgaben & Mängel');p.aufgaben.forEach(t=>{const ls=d.wrap(t.t,W-2*M-24,9);d.need(ls.length*12+4);d.text(t.done?'☑':'☐',M,d.y,{size:10,color:t.done?'#2e7d4f':'#1d2228'});ls.forEach((l,i)=>d.text(l,M+16,d.y+i*12,{size:9,color:t.done?'#69707a':'#1d2228'}));d.y+=ls.length*12+4});d.y+=8}
@@ -1525,8 +1542,8 @@ async function aufmassPdf(p,mode='full'){const full=mode==='full';toast('PDF wir
  const all=d.pages.map(c=>({c,land:false}));for(const z of isos)all.push(await isoPageCanvas(p,z,d.logo));
  if(full){for(const s of Object.values(ST.items).filter(s=>s.projId===p.id).sort((a,b)=>(a.monat||'').localeCompare(b.monat||'')))(await stundenPdfPages(s,d.logo)).forEach(pg=>all.push(pg))}
  if(fotos.length)(await photoPages(p,fotos,d.logo)).forEach(c=>all.push({c,land:false,lbl:`${p.name} · Fotodokumentation`}));
- const label=`${p.name} · ${full?'Projektdokumentation':'Aufmaß'}`;all.forEach((pg,i)=>{const x=pg.c.getContext('2d');x.setTransform(PXS,0,0,PXS,0,0);const PW=pg.land?PDFH:PDFW,PH=pg.land?PDFW:PDFH;pdfFooter(x,PW,PH,pg.land||i>=d.pages.length?28:d.M,pg.lbl||label,i,all.length)});
- await savePdf(buildPdf(all.map(pg=>pageFromCanvas(pg.c,pg.land))),(full?'Projekt_':'Aufmass_')+p.name)}
+ const label=`${p.name} · ${full?'Projektdokumentation':'Aufmaß'+(sheets[0]?' '+sheets[0].name+' · '+dDE(sheets[0].datum):'')}`;all.forEach((pg,i)=>{const x=pg.c.getContext('2d');x.setTransform(PXS,0,0,PXS,0,0);const PW=pg.land?PDFH:PDFW,PH=pg.land?PDFW:PDFH;pdfFooter(x,PW,PH,pg.land||i>=d.pages.length?28:d.M,pg.lbl||label,i,all.length)});
+ await savePdf(buildPdf(all.map(pg=>pageFromCanvas(pg.c,pg.land))),(full?'Projekt_':'Aufmass_')+p.name+(!full&&sheets[0]?'_'+(sheets[0].datum||''):''))}
 function collectPhotos(p){const out=[];
  (p.fotos||[]).forEach(f=>out.push({id:f.id,cap:'Projektfoto'+(f.d?' · '+dDE(f.d):'')}));
  (p.aufgaben||[]).forEach(t=>(t.fotos||[]).forEach(id=>out.push({id,cap:(t.done?'Mangel (erledigt): ':'Mangel (offen): ')+t.t})));
