@@ -230,7 +230,12 @@ body.kbopen nav#tabs{display:none}
 .drow.we{background:color-mix(in srgb,var(--bg) 70%,transparent)}
 .drow input{padding:6px 5px;font-size:15px;min-width:0}
 .drow .dtx{grid-column:2/-1;font-size:13px;padding:5px 7px}
-.dd{font-size:12px;line-height:1.1;text-align:center}.dd b{display:block;font-size:11px;color:var(--muted)}
+.dd{font-size:12px;line-height:1.1;text-align:center;grid-row:span 2;align-self:stretch;display:flex;flex-direction:column;justify-content:center;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit;font-size:12px;padding:2px 0;cursor:pointer}.dd b{display:block;font-size:11px;color:var(--muted)}.dd i{font-style:normal;font-size:9px;color:var(--acc)}
+.dart{grid-column:2/-1;border-radius:8px;padding:8px 10px;font-size:14px;font-weight:600}
+.a-U{background:#e3f1e6;color:#1f6b3a}.a-K{background:#fde4e1;color:#a3271b}.a-F{background:#efe7fb;color:#5b3a9c}.a-ZA{background:#e2eef9;color:#1f5a8f}.a-SW{background:#eceff1;color:#455a64}
+.dex{grid-column:2/-1;font-size:12px;color:var(--muted);padding:0 2px}
+.dhol{grid-column:2/-1;font-size:11.5px;color:#5b3a9c;padding:0 2px}
+.stgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}.stgrid div{background:var(--bg);border-radius:8px;padding:6px 8px}.stgrid b{display:block;font-size:15px}.stgrid span{font-size:11px;color:var(--muted)}
 .drow.we .dd b{color:var(--acc)}
 .dsum{text-align:right;padding:10px 4px 2px;font-size:15px}
 .tgrid{overflow-x:auto;-webkit-overflow-scrolling:touch}
@@ -1417,7 +1422,35 @@ function stSub(db){ST.col=db.collection('stunden');ST.col.onSnapshot(snap=>{
   let ch=false;snap.docChanges().forEach(c=>{const id=c.doc.id;if(ST.deleted.has(id)){if(c.type!=='removed')ST.col.doc(id).delete().catch(()=>{});return}if(ST.pending.has(id))return;if(c.type==='removed')delete ST.items[id];else ST.items[id]=JSON.parse(JSON.stringify(c.doc.data()));ch=true});
   if(ch){lsSet('isopro_stunden',ST.items);softRender()}},()=>{})}
 /* Berechnung */
-function dayStd(r){if(!r)return 0;const a=hm(r.von),b=hm(r.bis);if(a!==null&&b!==null){let m=b-a;if(m<0)m+=1440;m-=num(r.pause);return Math.max(0,Math.round(m/60*100)/100)}return num(r.std)}
+function dayStd(r){if(!r||r.art)return 0;const a=hm(r.von),b=hm(r.bis);if(a!==null&&b!==null){let m=b-a;if(m<0)m+=1440;m-=num(r.pause);return Math.max(0,Math.round(m/60*100)/100)}return num(r.std)}
+const ARTS=[['','Arbeit','🛠️'],['U','Urlaub','🏖️'],['K','Krank','🤒'],['F','Feiertag','🎉'],['ZA','Zeitausgleich','⏱️'],['SW','Schlechtwetter','🌧️']];
+const artName=k=>(ARTS.find(a=>a[0]===k)||ARTS[0])[1];const artIco=k=>(ARTS.find(a=>a[0]===k)||ARTS[0])[2];
+const HOLC={};function holidays(y){if(HOLC[y])return HOLC[y];const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*m+114)/31),da=((h+l-7*m+114)%31)+1;
+ const E=new Date(y,mo-1,da);const o=(n)=>ymd(new Date(y,mo-1,da+n));const r={};r[y+'-01-01']='Neujahr';r[y+'-01-06']='Hl. Drei Könige';r[o(-2)]='Karfreitag';r[o(1)]='Ostermontag';r[y+'-05-01']='Tag der Arbeit';r[o(39)]='Christi Himmelfahrt';r[o(50)]='Pfingstmontag';r[o(60)]='Fronleichnam';r[y+'-10-03']='Tag der Dt. Einheit';r[y+'-11-01']='Allerheiligen';r[y+'-12-25']='1. Weihnachtstag';r[y+'-12-26']='2. Weihnachtstag';return HOLC[y]=r}
+const holName=dt=>holidays(dt.getFullYear())[ymd(dt)]||'';
+function einzelStats(s){const st={h:0,fz:0,km:0,sp:0,at:0,U:0,K:0,F:0,ZA:0,SW:0};for(const x of perDays(s)){const r=(s.tage||{})[x.k];
+  if(r&&r.art){st[r.art]=(st[r.art]||0)+1}else{const h=dayStd(r);if(h>0){st.h+=h;st.at++}else if(x.w>0&&x.w<6&&holName(x.dt))st.F++}
+  if(r){st.fz+=num(r.fz);st.km+=num(r.km);st.sp+=num(r.sp)}}st.h=Math.round(st.h*100)/100;st.fz=Math.round(st.fz*100)/100;return st}
+
+function statsHTML(st){const it=[[fh(st.h)||'0','Arbeitsstunden'],[st.at,'Arbeitstage'],[fh(st.fz)||'0','Fahrzeit Std.'],[st.U,'Urlaubstage'],[st.K,'Krankheitstage'],[st.F,'Feiertage'],[fmt(st.km,0),'km Fahrtweg'],[eur(st.sp),'Spesen'],[st.ZA+(st.SW?' / '+st.SW:''),st.SW?'Ausgleich / Schlechtw.':'Zeitausgleich']];
+ return `<div class="stgrid">${it.map(([v,l])=>`<div><b>${v}</b><span>${l}</span></div>`).join('')}</div>`}
+function dayRowHTML(s,x,wk){const d=x.k,w=x.w;const r=s.tage[d]||{};const hol=holName(x.dt);const ex=[num(r.fz)?'🚗 '+fh(num(r.fz))+' h':'',num(r.km)?fmt(num(r.km),0)+' km':'',num(r.sp)?'💶 '+eur(num(r.sp)):''].filter(Boolean).join(' · ');
+ const lab=`<button type="button" class="dd" data-dd="${d}"><b>${WTAG[w]}</b>${p2(x.d)}.${wk?p2(x.dt.getMonth()+1)+'.':''}<i>＋</i></button>`;
+ const body=r.art?`<div class="dart a-${r.art}">${artIco(r.art)} ${artName(r.art)}${r.taet?' · <span style="font-weight:400">'+esc(r.taet)+'</span>':''}</div>`:`<input type="time" data-k="von" value="${esc(r.von||'')}" aria-label="Beginn"><input type="time" data-k="bis" value="${esc(r.bis||'')}" aria-label="Ende"><input data-k="pause" inputmode="numeric" value="${esc(r.pause||'')}" placeholder="0" aria-label="Pause"><input data-k="std" inputmode="decimal" value="${esc(r.von&&r.bis?fh(dayStd(r)):(r.std||''))}" placeholder="–" aria-label="Stunden">
+  <input class="dtx" data-k="taet" value="${esc(r.taet||'')}" placeholder="${hol?esc(hol)+' (Feiertag)':'Tätigkeit / Baustelle'}" autocomplete="off">`;
+ return `<div class="drow${w===0||w===6||hol?' we':''}" data-d="${d}">${lab}${body}${hol&&!r.art?`<div class="dhol">🎉 ${esc(hol)}</div>`:''}${ex?`<div class="dex">${ex}</div>`:''}</div>`}
+function daySheet(s,x){const d=x.k;const r={...(s.tage[d]||{})};let art=r.art||'';const hol=holName(x.dt);
+ openSheet(`<h3 style="margin-top:0">${WTAG[x.w]}, ${dmy(x.dt)}${hol?' <span class="note">· '+esc(hol)+'</span>':''}</h3>
+ <label class="f"><span>Art des Tages</span><div class="chips" id="artc" style="flex-wrap:wrap;margin:0">${ARTS.map(a=>`<button type="button" data-art="${a[0]}" class="${art===a[0]?'on':''}">${a[2]} ${a[1]}</button>`).join('')}</div></label>
+ <div id="worktime" style="${art?'display:none':''}"><div class="grid2"><label class="f"><span>Beginn</span><input type="time" id="dv" value="${esc(r.von||'')}"></label><label class="f"><span>Ende</span><input type="time" id="db" value="${esc(r.bis||'')}"></label><label class="f"><span>Pause (min)</span><input id="dp" inputmode="numeric" value="${esc(r.pause||'')}"></label><label class="f"><span>oder Stunden direkt</span><input id="dsd" inputmode="decimal" value="${esc(r.von&&r.bis?'':(r.std||''))}"></label></div></div>
+ <label class="f"><span>Tätigkeit / Baustelle / Bemerkung</span><input id="dt" value="${esc(r.taet||'')}" autocomplete="off"></label>
+ <div class="grid2" style="grid-template-columns:repeat(3,1fr)"><label class="f"><span>Fahrzeit (Std.)</span><input id="dfz" inputmode="decimal" value="${esc(r.fz||'')}" placeholder="0"></label><label class="f"><span>Fahrtweg (km)</span><input id="dkm" inputmode="decimal" value="${esc(r.km||'')}" placeholder="0"></label><label class="f"><span>Spesen (€)</span><input id="dsp" inputmode="decimal" value="${esc(r.sp||'')}" placeholder="0"></label></div>
+ <div class="row"><button class="btn" id="ok">Speichern</button><button class="btn sec" id="clr">Tag leeren</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{
+  document.querySelectorAll('#artc [data-art]').forEach(b=>b.onclick=()=>{art=b.dataset.art;document.querySelectorAll('#artc [data-art]').forEach(c=>c.classList.toggle('on',c===b));$('#worktime').style.display=art?'none':''});
+  $('#clr').onclick=()=>{delete s.tage[d];stSave(s);closeSheet();render()};
+  $('#ok').onclick=()=>{const n={};if(art)n.art=art;else{n.von=$('#dv').value;n.bis=$('#db').value;n.pause=$('#dp').value.trim();if(n.von&&n.bis)n.std=String(dayStd(n));else n.std=$('#dsd').value.trim()}
+   n.taet=$('#dt').value.trim();n.fz=$('#dfz').value.trim();n.km=$('#dkm').value.trim();n.sp=$('#dsp').value.trim();Object.keys(n).forEach(k=>{if(!n[k])delete n[k]});
+   if(Object.keys(n).length)s.tage[d]=n;else delete s.tage[d];stSave(s);closeSheet();render()}})}
 function sumEinzel(s){return perDays(s).reduce((t,x)=>t+dayStd((s.tage||{})[x.k]),0)}
 function sumMa(m,s){return perDays(s).reduce((t,x)=>t+num((m.h||{})[x.k]),0)}
 function sumTeam(s){return (s.ma||[]).reduce((t,m)=>t+sumMa(m,s),0)}
@@ -1466,26 +1499,25 @@ function bindHead(a,s){a.querySelector('.back').onclick=()=>{UI.sheet=null;rende
   stSave(s);if(k==='monat'||k==='woche'||k==='projId')render()}));
  a.querySelectorAll('[data-zr]').forEach(b=>b.onclick=()=>{const z=b.dataset.zr;if(z==='woche'){s.zeitraum='woche';if(!weekStart(s.woche)){const t=new Date();const [y,mo]=s.monat.split('-').map(Number);s.woche=(t.getFullYear()===y&&t.getMonth()+1===mo)?curWeek():isoWeek(new Date(y,mo-1,1))}s.monat=ymd(weekStart(s.woche)).slice(0,7)}else s.zeitraum='monat';stSave(s);render()})}
 function rEinzel(a,s){s.tage=s.tage||{};const days=perDays(s),wk=isWeek(s);
- const rows=[];for(const x of days){const d=x.k,w=x.w;const r=s.tage[d]||{};rows.push(`<div class="drow${w===0||w===6?' we':''}" data-d="${d}"><div class="dd"><b>${WTAG[w]}</b>${p2(x.d)}.${wk?p2(x.dt.getMonth()+1)+'.':''}</div>
-  <input type="time" data-k="von" value="${esc(r.von||'')}" aria-label="Beginn"><input type="time" data-k="bis" value="${esc(r.bis||'')}" aria-label="Ende"><input data-k="pause" inputmode="numeric" value="${esc(r.pause||'')}" placeholder="0" aria-label="Pause"><input data-k="std" inputmode="decimal" value="${esc(r.von&&r.bis?fh(dayStd(r)):(r.std||''))}" placeholder="–" aria-label="Stunden">
-  <input class="dtx" data-k="taet" value="${esc(r.taet||'')}" placeholder="Tätigkeit / Baustelle" autocomplete="off"></div>`)}
+ const rows=days.map(x=>dayRowHTML(s,x,wk));
  a.innerHTML=sheetHead(s,`<label class="f" style="grid-column:1/-1"><span>Name Mitarbeiter</span><input data-sf="name" list="malist" value="${esc(s.name)}" autocomplete="off">${maDatalist()}</label>`)+`
  <div class="row" style="margin:4px 0 10px;flex-wrap:wrap"><button class="btn sec" id="fill">Mo–Fr füllen …</button><button class="btn sec" id="ssig">✍️ Unterschriften${hasSig(s)?' ✓':''}</button><button class="btn sec" id="snext">⧉ ${isWeek(s)?'Nächste Woche':'Nächster Monat'}</button><button class="btn" id="spdf">📄 PDF</button></div>
- <div class="card" style="padding:8px 10px"><div class="dhead"><span>Tag</span><span>Beginn</span><span>Ende</span><span>Pause min</span><span>Std.</span></div>${rows.join('')}
- <div class="dsum">Summe ${perLabel(s)}: <b id="tot">${fh(sumEinzel(s))||0} Std.</b></div></div>
+ <div class="card" style="padding:8px 10px"><p class="note" style="margin:0 0 6px">Tag antippen für Urlaub, Krank, Feiertag, Fahrzeit, km und Spesen.</p><div class="dhead"><span>Tag</span><span>Beginn</span><span>Ende</span><span>Pause min</span><span>Std.</span></div>${rows.join('')}
+ <div class="dsum">Summe ${perLabel(s)}: <b id="tot">${fh(sumEinzel(s))||0} Std.</b></div><div id="stg">${statsHTML(einzelStats(s))}</div></div>
  <label class="f"><span>Bemerkung</span><textarea data-sf="notiz">${esc(s.notiz||'')}</textarea></label>`;
  bindHead(a,s);
  a.querySelectorAll('.drow').forEach(row=>{const d=row.dataset.d;row.querySelectorAll('input').forEach(inp=>inp.addEventListener('input',()=>{const r=s.tage[d]||(s.tage[d]={});r[inp.dataset.k]=inp.value.trim();
    if(inp.dataset.k!=='std'&&inp.dataset.k!=='taet'&&r.von&&r.bis){row.querySelector('[data-k="std"]').value=fh(dayStd(r));r.std=String(dayStd(r))}
-   if(!r.von&&!r.bis&&!r.std&&!r.taet&&!r.pause)delete s.tage[d];stSave(s);$('#tot').textContent=(fh(sumEinzel(s))||0)+' Std.'}))});
- $('#fill').onclick=()=>openSheet(`<h3 style="margin-top:0">Mo–Fr automatisch füllen</h3><p class="note">Füllt nur leere Arbeitstage.</p><div class="grid2"><label class="f"><span>Beginn</span><input type="time" id="fv" value="07:00"></label><label class="f"><span>Ende</span><input type="time" id="fb" value="16:00"></label><label class="f"><span>Pause (min)</span><input id="fp" inputmode="numeric" value="60"></label><label class="f"><span>Tätigkeit</span><input id="ft" value="${esc(s.baustelle||'')}"></label></div><div class="row"><button class="btn" id="ok">Füllen</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{$('#ok').onclick=()=>{for(const x of days){const d=x.k,w=x.w;if(w===0||w===6||s.tage[d])continue;const r={von:$('#fv').value,bis:$('#fb').value,pause:$('#fp').value,taet:$('#ft').value.trim()};r.std=String(dayStd(r));s.tage[d]=r}stSave(s);closeSheet();render()}});
+   if(!r.von&&!r.bis&&!r.std&&!r.taet&&!r.pause&&!r.art&&!r.fz&&!r.km&&!r.sp)delete s.tage[d];stSave(s);$('#tot').textContent=(fh(sumEinzel(s))||0)+' Std.';$('#stg').innerHTML=statsHTML(einzelStats(s))}))});
+ a.querySelectorAll('[data-dd]').forEach(b=>b.onclick=()=>{const x=days.find(z=>z.k===b.dataset.dd);if(x)daySheet(s,x)});
+ $('#fill').onclick=()=>openSheet(`<h3 style="margin-top:0">Mo–Fr automatisch füllen</h3><p class="note">Füllt nur leere Arbeitstage – Feiertage (Baden-Württemberg), Urlaub und Krank bleiben frei.</p><div class="grid2"><label class="f"><span>Beginn</span><input type="time" id="fv" value="07:00"></label><label class="f"><span>Ende</span><input type="time" id="fb" value="16:00"></label><label class="f"><span>Pause (min)</span><input id="fp" inputmode="numeric" value="60"></label><label class="f"><span>Tätigkeit</span><input id="ft" value="${esc(s.baustelle||'')}"></label></div><div class="row"><button class="btn" id="ok">Füllen</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{$('#ok').onclick=()=>{for(const x of days){const d=x.k,w=x.w;if(w===0||w===6||s.tage[d]||holName(x.dt))continue;const r={von:$('#fv').value,bis:$('#fb').value,pause:$('#fp').value,taet:$('#ft').value.trim()};r.std=String(dayStd(r));s.tage[d]=r}stSave(s);closeSheet();render()}});
  $('#spdf').onclick=()=>stundenPdf(s).catch(()=>toast('PDF fehlgeschlagen'));$('#ssig').onclick=()=>sheetSigs(s);$('#snext').onclick=()=>nextPeriodSheet(s)}
 function rTeam(a,s){s.ma=s.ma||[];const days=perDays(s),wk=isWeek(s);
- const dh=days.map(x=>`<th class="${x.w===0||x.w===6?'we':''}">${wk?p2(x.d)+'.'+p2(x.dt.getMonth()+1)+'.':x.d}<small>${WTAG[x.w]}</small></th>`);
+ const dh=days.map(x=>`<th class="${x.w===0||x.w===6||holName(x.dt)?'we':''}" ${holName(x.dt)?'title="'+holName(x.dt)+'"':''}>${wk?p2(x.d)+'.'+p2(x.dt.getMonth()+1)+'.':x.d}<small>${WTAG[x.w]}</small></th>`);
  a.innerHTML=sheetHead(s,`<label class="f" style="grid-column:1/-1"><span>Bezeichnung</span><input data-sf="titel" value="${esc(s.titel)}" placeholder="z. B. Kolonne Müller" autocomplete="off"></label>`)+`
  <div class="row" style="margin:4px 0 10px;flex-wrap:wrap"><button class="btn sec" id="addm">+ Mitarbeiter</button><button class="btn sec" id="fill">Mo–Fr füllen …</button><button class="btn sec" id="ssig">✍️ Unterschriften${hasSig(s)?' ✓':''}</button><button class="btn sec" id="snext">⧉ ${isWeek(s)?'Nächste Woche':'Nächster Monat'}</button><button class="btn" id="spdf">📄 PDF</button></div>
  <div class="card" style="padding:0"><div class="tgrid"><table><thead><tr><th class="nm">Name</th>${dh.join('')}<th class="sm">Σ</th></tr></thead><tbody>
- ${s.ma.map(m=>`<tr data-m="${m.id}"><td class="nm"><input data-n list="malist" value="${esc(m.name)}" placeholder="Name" autocomplete="off"><button class="mdel" data-md="${m.id}" aria-label="Mitarbeiter löschen" type="button">×</button></td>${days.map(x=>{const d=x.k,w=x.w;return `<td class="${w===0||w===6?'we':''}"><input data-d="${d}" inputmode="decimal" value="${esc((m.h||{})[d]||'')}"></td>`}).join('')}<td class="sm" data-sum>${fh(sumMa(m,s))}</td></tr>`).join('')}
+ ${s.ma.map(m=>`<tr data-m="${m.id}"><td class="nm"><input data-n list="malist" value="${esc(m.name)}" placeholder="Name" autocomplete="off"><button class="mdel" data-md="${m.id}" aria-label="Mitarbeiter löschen" type="button">×</button></td>${days.map(x=>{const d=x.k,w=x.w;return `<td class="${w===0||w===6||holName(x.dt)?'we':''}"><input data-d="${d}" inputmode="decimal" value="${esc((m.h||{})[d]||'')}"></td>`}).join('')}<td class="sm" data-sum>${fh(sumMa(m,s))}</td></tr>`).join('')}
  </tbody><tfoot><tr><td class="nm"><b>Summe</b></td>${days.map(x=>`<td data-ds="${x.k}">${fh(s.ma.reduce((t,m)=>t+num((m.h||{})[x.k]),0))}</td>`).join('')}<td class="sm" id="tot">${fh(sumTeam(s))}</td></tr></tfoot></table></div></div>
  ${maDatalist()}<p class="note">Seitlich wischen, um alle Tage zu sehen. Stunden je Tag eintragen (z. B. 8 oder 7,5). Mitarbeiter mit × entfernen.</p>
  <label class="f"><span>Bemerkung</span><textarea data-sf="notiz">${esc(s.notiz||'')}</textarea></label>`;
@@ -1496,7 +1528,7 @@ function rTeam(a,s){s.ma=s.ma||[];const days=perDays(s),wk=isWeek(s);
   tr.querySelectorAll('[data-d]').forEach(inp=>inp.addEventListener('input',()=>{const v=inp.value.trim();if(v)m.h[inp.dataset.d]=v;else delete m.h[inp.dataset.d];stSave(s);upd()}))});
  a.querySelectorAll('[data-md]').forEach(b=>b.onclick=()=>{const i=s.ma.findIndex(x=>x.id===b.dataset.md);if(i<0)return;const old=s.ma[i];s.ma.splice(i,1);stSave(s);render();undoToast('Mitarbeiter entfernt',()=>{s.ma.splice(i,0,old);stSave(s);render()})});
  $('#addm').onclick=()=>maPicker(s);
- $('#fill').onclick=()=>openSheet(`<h3 style="margin-top:0">Mo–Fr automatisch füllen</h3><p class="note">Trägt bei allen Mitarbeitern in leere Arbeitstage ein.</p><label class="f"><span>Stunden pro Tag</span><input id="fs" inputmode="decimal" value="8"></label><div class="row"><button class="btn" id="ok">Füllen</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{$('#ok').onclick=()=>{const v=$('#fs').value.trim();if(!num(v))return;s.ma.forEach(m=>{m.h=m.h||{};for(const x of days){const d=x.k,w=x.w;if(w===0||w===6||m.h[d])continue;m.h[d]=v}});stSave(s);closeSheet();render()}});
+ $('#fill').onclick=()=>openSheet(`<h3 style="margin-top:0">Mo–Fr automatisch füllen</h3><p class="note">Trägt bei allen Mitarbeitern in leere Arbeitstage ein.</p><label class="f"><span>Stunden pro Tag</span><input id="fs" inputmode="decimal" value="8"></label><div class="row"><button class="btn" id="ok">Füllen</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{$('#ok').onclick=()=>{const v=$('#fs').value.trim();if(!num(v))return;s.ma.forEach(m=>{m.h=m.h||{};for(const x of days){const d=x.k,w=x.w;if(w===0||w===6||m.h[d]||holName(x.dt))continue;m.h[d]=v}});stSave(s);closeSheet();render()}});
  $('#spdf').onclick=()=>stundenPdf(s).catch(()=>toast('PDF fehlgeschlagen'));$('#ssig').onclick=()=>sheetSigs(s);$('#snext').onclick=()=>nextPeriodSheet(s)}
 /* PDF */
 function sigLines(d,labels,sigs){sigs=sigs||[];const M=d.M,W=d.W;const gap=24,w=(W-2*M-gap*(labels.length-1))/labels.length;d.need(76);d.y+=38;
@@ -1508,14 +1540,22 @@ function stInfo(d,s,title){const p=s.projId&&S.projects[s.projId];const M=d.M,W=
  info.forEach((it,i)=>{const cx=M+10+(i%cols)*colW,cy=d.y+15+Math.floor(i/cols)*RH;d.text(it[0].toUpperCase(),cx,cy,{size:6.5,color:'#69707a',bold:true});let t=d.wrap(it[1],colW-14,9,true)[0]||'';d.text(t,cx,cy+12,{size:9,bold:true})});d.y+=bh+14}
 async function stundenPdfPages(s,logo){const team=s.typ==='team';const sg=s.sig||{};const SGa=[await sigObj(sg.ma),await sigObj(sg.an),await sigObj(sg.ag)];const SGm={};for(const m of (s.ma||[]))SGm[m.id]=await sigObj(m.sig);const d=PdfDoc(team);d.logo=logo;d.newPage();const M=d.M,W=d.W;const days=perDays(s),n=days.length,wk=isWeek(s);
  stInfo(d,s,'Stundennachweis');
- if(!team){const cols=[['Datum',48,'l'],['Tag',26,'l'],['Beginn',44,'r'],['Ende',44,'r'],['Pause',40,'r'],['Stunden',48,'r'],['Tätigkeit / Baustelle',0,'l']];cols[6][1]=W-2*M-cols.reduce((t,c)=>t+c[1],0);
+ if(!team){const st=einzelStats(s);const T=s.tage||{};const has=k=>Object.values(T).some(r=>num(r[k]));const xF=has('fz'),xK=has('km'),xS=has('sp');
+  const cols=[['Datum',50,'l','dat'],['Tag',22,'l','tag'],['Beginn',36,'r','von'],['Ende',36,'r','bis'],['Pause',34,'r','pause'],['Std.',34,'r','std']];if(xF)cols.push(['Fahrt h',36,'r','fz']);if(xK)cols.push(['km',32,'r','km']);if(xS)cols.push(['Spesen €',44,'r','sp']);cols.push(['Tätigkeit / Baustelle',0,'l','taet']);
+  const ti=cols.length-1;cols[ti][1]=W-2*M-cols.reduce((t,c)=>t+c[1],0);
   const head=()=>{d.rect(M,d.y,W-2*M,15,'#1d2228');let cx=M;cols.forEach(c=>{d.text(c[0],c[2]==='r'?cx+c[1]-4:cx+4,d.y+10.5,{size:7.5,bold:true,color:'#fff',align:c[2]==='r'?'right':'left'});cx+=c[1]});d.y+=15};
-  head();d.onNewPage=head;
-  for(const x of days){const r=(s.tage||{})[x.k]||{};const w=x.w;const rh=14.2;d.need(rh);if(w===0||w===6)d.rect(M,d.y,W-2*M,rh,'#eeebe5');
-   const st=dayStd(r);const vals=[dmy(x.dt),WTAG[w],r.von||'',r.bis||'',num(r.pause)?r.pause+' min':'',st?fh(st):'',r.taet||''];
-   let cx=M;cols.forEach((c,ci)=>{let t=vals[ci];if(ci===6){d.font(8);while(t.length>2&&d.ctx.measureText(t).width>c[1]-8)t=t.slice(0,-2)+'…'}d.text(t,c[2]==='r'?cx+c[1]-4:cx+4,d.y+10,{size:8,bold:ci===5,align:c[2]==='r'?'right':'left'});cx+=c[1]});
+  head();d.onNewPage=head;const rh=days.length>20?11.2:14.2;const AC={U:['#e3f1e6','#1f6b3a'],K:['#fde4e1','#a3271b'],F:['#efe7fb','#5b3a9c'],ZA:['#e2eef9','#1f5a8f'],SW:['#eceff1','#455a64']};
+  for(const x of days){const r=T[x.k]||{};const w=x.w;const hol=holName(x.dt);d.need(rh);
+   if(r.art)d.rect(M,d.y,W-2*M,rh,AC[r.art][0]);else if(w===0||w===6||hol)d.rect(M,d.y,W-2*M,rh,'#eeebe5');
+   const h=dayStd(r);const V={dat:dmy(x.dt),tag:WTAG[w],von:r.art?'':r.von||'',bis:r.art?'':r.bis||'',pause:!r.art&&num(r.pause)?r.pause+' min':'',std:h?fh(h):'',fz:num(r.fz)?fh(num(r.fz)):'',km:num(r.km)?fmt(num(r.km),0):'',sp:num(r.sp)?fmt(num(r.sp),2):'',taet:(r.art?artName(r.art)+(r.taet?' – '+r.taet:''):(r.taet||(hol?hol:'')))};
+   let cx=M;cols.forEach((c,ci)=>{let t=V[c[3]];if(ci===ti){d.font(8,r.art?'bold':'');while(t.length>2&&d.ctx.measureText(t).width>c[1]-8)t=t.slice(0,-2)+'…'}
+    d.text(t,c[2]==='r'?cx+c[1]-4:cx+4,d.y+rh-3.8,{size:8,bold:c[3]==='std'||(ci===ti&&!!r.art),color:ci===ti&&r.art?AC[r.art][1]:(ci===ti&&hol&&!r.taet?'#5b3a9c':'#1d2228'),align:c[2]==='r'?'right':'left'});cx+=c[1]});
    d.y+=rh;d.line(M,d.y,W-M,d.y)}
-  d.onNewPage=null;d.rect(M,d.y,W-2*M,17,'#f4f2ee');d.text('Summe',M+4,d.y+12,{size:9,bold:true});const sx=M+cols.slice(0,6).reduce((t,c)=>t+c[1],0);d.text((fh(sumEinzel(s))||'0')+' Std.',sx-4,d.y+12,{size:9.5,bold:true,align:'right'});d.y+=22;
+  d.onNewPage=null;d.rect(M,d.y,W-2*M,17,'#f4f2ee');d.text('Summe',M+4,d.y+12,{size:9,bold:true});
+  {let cx=M;cols.forEach(c=>{const v=c[3]==='std'?(fh(st.h)||'0'):c[3]==='fz'?fh(st.fz):c[3]==='km'?fmt(st.km,0):c[3]==='sp'?fmt(st.sp,2):'';if(v)d.text(v,cx+c[1]-4,d.y+12,{size:9,bold:true,align:'right'});cx+=c[1]})}d.y+=24;
+  const it=[['Arbeitsstunden',(fh(st.h)||'0')+' Std.'],['Arbeitstage',String(st.at)],['Fahrzeit',(fh(st.fz)||'0')+' Std.'],['Gesamt inkl. Fahrzeit',(fh(Math.round((st.h+st.fz)*100)/100)||'0')+' Std.'],['Urlaubstage',String(st.U)],['Krankheitstage',String(st.K)],['Feiertage',String(st.F)],['Zeitausgleich',String(st.ZA)+(st.SW?' · Schlechtwetter '+st.SW:'')],['Fahrtweg',fmt(st.km,0)+' km'],['Spesen',eur(st.sp)]];
+  const cn=5,cw=(W-2*M)/cn,RH=24,bh=Math.ceil(it.length/cn)*RH+6;d.need(bh+20);d.text('Zusammenfassung',M,d.y+4,{size:10,bold:true});d.y+=10;d.rect(M,d.y,W-2*M,bh,'#f4f2ee');
+  it.forEach((v,i)=>{const cx=M+8+(i%cn)*cw,cy=d.y+12+Math.floor(i/cn)*RH;d.text(v[0].toUpperCase(),cx,cy,{size:6,color:'#69707a',bold:true});d.text(v[1],cx,cy+10.5,{size:9,bold:true})});d.y+=bh+10;
   if(s.notiz){d.need(30);d.text('Bemerkung: ',M,d.y+8,{size:8.5,bold:true});d.wrap(s.notiz,W-2*M-60,8.5).forEach((l,i)=>{d.text(l,M+58,d.y+8,{size:8.5});d.y+=11})}
   sigLines(d,['Mitarbeiter','Auftragnehmer','Auftraggeber'],SGa)}
  else{const nameW=118,sumW=36,sigW=96;const dayW=(W-2*M-nameW-sumW-sigW)/n;const rh=19;
