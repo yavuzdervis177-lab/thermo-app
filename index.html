@@ -293,7 +293,11 @@ async function copyText(t){try{await navigator.clipboard.writeText(t);toast('In 
 
 /* ---------- Tastatur / sichtbarer Bereich ---------- */
 function vvUpd(){const v=window.visualViewport;const r=document.documentElement;if(!v){return}r.style.setProperty('--vvh',v.height+'px');r.style.setProperty('--vvt',v.offsetTop+'px');
- const kb=v.height<window.innerHeight*0.78;document.body.classList.toggle('kbopen',kb);if(kb)setTimeout(keepFocusVisible,60)}
+ vvBase=Math.max(vvBase,window.innerHeight,v.height);const kb=v.height<vvBase*0.78;document.body.classList.toggle('kbopen',kb);if(kb)setTimeout(keepFocusVisible,60);
+ if(kb&&!vvKb){const ae=document.activeElement;if(isTypeField(ae)&&ae.closest('#sheet'))$('#modal').classList.add('top')}
+ if(!kb&&vvKb){clearTimeout(vvT);vvT=setTimeout(()=>{if(document.body.classList.contains('kbopen'))return;const ae=document.activeElement;if(isTypeField(ae))ae.blur();$('#modal').classList.remove('top')},150)}
+ vvKb=kb}
+let vvKb=false,vvT=0,vvBase=0;window.addEventListener('orientationchange',()=>{vvBase=0;setTimeout(vvUpd,400)});
 function keepFocusVisible(){const a=document.activeElement;if(!a||!/INPUT|TEXTAREA|SELECT/.test(a.tagName)||a.type==='file')return;
  const pl=a.closest('#plist');if(pl){const row=a.closest('.swp')||a;const top=row.offsetTop,bot=top+row.offsetHeight;if(top<pl.scrollTop||bot>pl.scrollTop+pl.clientHeight)pl.scrollTop=top-pl.clientHeight/2+row.offsetHeight/2;return}
  const sh=a.closest('#sheet');if(sh){a.scrollIntoView({block:'center'});return}
