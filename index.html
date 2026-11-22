@@ -1524,7 +1524,7 @@ async function isoPdf(p,list){list=list.filter(d=>d.segs.length);if(!list.length
 /* ---------- Modal ---------- */
 function openSheet(html,after){$('#sheet').innerHTML=html;$('#modal').classList.add('on');if(after)after()}
 function closeSheet(){$('#modal').classList.remove('on','top');$('#sheet').innerHTML=''}
-$('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeSheet()});
+let bdDown=false;$('#modal').addEventListener('pointerdown',e=>{bdDown=e.target.id==='modal'});$('#modal').addEventListener('click',e=>{if(e.target.id==='modal'&&bdDown)closeSheet();bdDown=false});
 
 readHash();headerUpd();render();initCloud();if(pinGet()&&!isUnlocked())showLock();document.getElementById('gear').onclick=()=>{location.hash='einstellungen'};
 </script>
