@@ -1720,12 +1720,13 @@ async function aufmassPdf(p,mode='full',A){const full=mode==='full';toast('PDF w
  const sect=(t)=>{d.need(40);d.text(t,M,d.y+4,{size:12,bold:true});d.y+=10;d.line(M,d.y,W-M,d.y,'#1d2228',.8);d.y+=12};
  if(full&&(p.aufgaben||[]).length){sect('Aufgaben & Mängel');p.aufgaben.forEach(t=>{const ls=d.wrap(t.t,W-2*M-24,9);d.need(ls.length*12+4);d.text(t.done?'☑':'☐',M,d.y,{size:10,color:t.done?'#2e7d4f':'#1d2228'});ls.forEach((l,i)=>d.text(l,M+16,d.y+i*12,{size:9,color:t.done?'#69707a':'#1d2228'}));d.y+=ls.length*12+4});d.y+=8}
  if(full&&(p.tagebuch||[]).length){sect('Bautagebuch');p.tagebuch.slice().sort((a,b)=>(a.d||'').localeCompare(b.d||'')).forEach(e=>{const ls=d.wrap(e.t||'–',W-2*M-70,9);d.need(ls.length*12+6);d.text(dDE(e.d),M,d.y,{size:9,bold:true});ls.forEach((l,i)=>d.text(l,M+70,d.y+i*12,{size:9}));d.y+=ls.length*12+6});d.y+=8}
- const fotos=full?collectPhotos(p):[];
- if(isos.length||fotos.length||Object.values(ST.items).some(s=>s.projId===p.id&&full)){d.need(30);d.text('Auf den folgenden Seiten: '+[isos.length?(isos.length>1?isos.length+' Isometrien':'Isometrie')+' ('+isos.map(z=>z.name).join(', ')+')':'',(()=>{const k=Object.values(ST.items).filter(s=>s.projId===p.id).length;return full&&k?k+' Stundennachweis(e)':''})(),fotos.length?fotos.length+' Foto(s)':''].filter(Boolean).join(' · '),M,d.y+6,{size:9,color:'#69707a'})}
+ const fotos=full?collectPhotos(p):[];const stl=full?Object.values(ST.items).filter(s=>s.projId===p.id):[];const inl=fotos.length&&!isos.length&&!stl.length;
+ if(inl){d.need(260);sect('Fotodokumentation');await photoGrid(d,fotos)}
+ else if(isos.length||fotos.length||Object.values(ST.items).some(s=>s.projId===p.id&&full)){d.need(30);d.text('Auf den folgenden Seiten: '+[isos.length?(isos.length>1?isos.length+' Isometrien':'Isometrie')+' ('+isos.map(z=>z.name).join(', ')+')':'',(()=>{const k=Object.values(ST.items).filter(s=>s.projId===p.id).length;return full&&k?k+' Stundennachweis(e)':''})(),fotos.length?fotos.length+' Foto(s)':''].filter(Boolean).join(' · '),M,d.y+6,{size:9,color:'#69707a'})}
  // Seiten zusammenführen: Aufmaß-Seiten + je Isometrie eine ganze Seite
  const all=d.pages.map(c=>({c,land:false}));for(const z of isos)all.push(await isoPageCanvas(p,z,d.logo));
  if(full){for(const s of Object.values(ST.items).filter(s=>s.projId===p.id).sort((a,b)=>(a.monat||'').localeCompare(b.monat||'')))(await stundenPdfPages(s,d.logo)).forEach(pg=>all.push(pg))}
- if(fotos.length)(await photoPages(p,fotos,d.logo)).forEach(c=>all.push({c,land:false,lbl:`${p.name} · Fotodokumentation`}));
+ if(fotos.length&&!inl)(await photoPages(p,fotos,d.logo)).forEach(c=>all.push({c,land:false,lbl:`${p.name} · Fotodokumentation`}));
  const label=`${p.name} · ${full?'Projektdokumentation':'Aufmaß'+(sheets[0]?' '+sheets[0].name+' · '+dDE(sheets[0].datum):'')}`;all.forEach((pg,i)=>{const x=pg.c.getContext('2d');x.setTransform(PXS,0,0,PXS,0,0);const PW=pg.land?PDFH:PDFW,PH=pg.land?PDFW:PDFH;pdfFooter(x,PW,PH,pg.land||i>=d.pages.length?28:d.M,pg.lbl||label,i,all.length)});
  await savePdf(buildPdf(all.map(pg=>pageFromCanvas(pg.c,pg.land))),(full?'Projekt_':'Aufmass_')+p.name+(!full&&sheets[0]?'_'+(sheets[0].datum||''):''))}
 function collectPhotos(p){const out=[];
@@ -1735,6 +1736,8 @@ function collectPhotos(p){const out=[];
 async function photoImg(id){if(isLocalPh(id))return loadImg(await phData(id));return loadImg('/_blob/'+id)}
 async function photoPages(p,fotos,logo){const d=PdfDoc(false);d.logo=logo;d.newPage();const M=d.M,W=d.W;
  const ty=pdfLetterhead(d.ctx,W,M,logo);d.text('Fotodokumentation',M,ty,{size:16,bold:true});d.text(p.name,W-M,ty,{size:9,color:'#69707a',align:'right'});d.y=ty+16;
+ await photoGrid(d,fotos);return d.pages}
+async function photoGrid(d,fotos){const M=d.M,W=d.W;
  const gap=14,cw=(W-2*M-gap)/2,ih=200,ch=ih+34;let col=0,rowY=d.y,missing=0;
  for(const f of fotos){if(col===0){if(rowY+ch>d.H-pdfFootH()-12){d.newPage();rowY=d.M}}
   const x0=M+col*(cw+gap);const img=await photoImg(f.id);d.rect(x0,rowY,cw,ih,'#f4f2ee');
@@ -1742,7 +1745,7 @@ async function photoPages(p,fotos,logo){const d=PdfDoc(false);d.logo=logo;d.newP
   d.ctx.strokeStyle='#d8d4cc';d.ctx.lineWidth=.6;d.ctx.strokeRect(x0,rowY,cw,ih);
   d.wrap(f.cap,cw-4,8).slice(0,2).forEach((l,li)=>d.text(l,x0+2,rowY+ih+12+li*10,{size:8,color:'#1d2228'}));
   col=1-col;if(col===0)rowY+=ch}
- if(missing)toast(missing+' Foto(s) konnten nicht geladen werden');return d.pages}
+ d.y=rowY+(col?ch:0);if(missing)toast(missing+' Foto(s) konnten nicht geladen werden')}
 async function isoPageCanvas(p,d,logo){const ex=isoExportSVG(p,d);const land=false;const PW=land?PDFH:PDFW,PH=land?PDFW:PDFH,M=28;
  const tmpTop=hasFirma()?(()=>{const t=document.createElement('canvas').getContext('2d');return pdfLetterhead(t,PW,M+6,logo)-8})():M;
  const sc=Math.min((PW-2*M)/ex.w,(PH-tmpTop-pdfFootH()-10)/ex.h);const cv=await svgToCanvas(ex.svg,ex.w,ex.h,Math.min(4,sc*PXS*1.2));
