@@ -123,6 +123,7 @@ details.acc .in ul{padding-left:18px;margin:6px 0}
 .favs{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 12px}.favs button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:99px;padding:7px 12px;font:inherit;font-size:13px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
 .favs .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
 .bkban{border-left:3px solid var(--warn);background:var(--card);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13.5px}
+.swp.reo{position:relative;z-index:30;transition:none!important;box-shadow:0 10px 28px rgba(0,0,0,.35);border-radius:10px;background:var(--card);opacity:.97}.swp.reo .swa{display:none}.reobox{user-select:none;-webkit-user-select:none}.swpos{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .warnbox{border-left:3px solid var(--warn);padding:8px 10px;background:var(--card);border-radius:8px;font-size:13px;color:var(--muted);margin-bottom:12px}
 nav#tabs button{font-size:10px;padding-left:0;padding-right:0}
 nav#tabs button svg{width:22px;height:22px}
@@ -331,11 +332,32 @@ document.addEventListener('focusout',()=>setTimeout(()=>{const a=document.active
 /* ---------- Wischen zum Löschen ---------- */
 const SWW=96;
 function swipeWrap(id,inner,cls=''){return `<div class="swp ${cls}" data-swid="${esc(id)}"><div class="swa"><button class="swdel" type="button">🗑<span>Löschen</span></button></div><div class="swc">${inner}</div></div>`}
+/* Langes Drücken + Ziehen zum Sortieren */
+function initReorder(box,onDone){if(!box||box._ro)return;box._ro=1;let el=null,timer=0,sx=0,sy=0,grab=0,fy=0,active=false,raf=0;
+ const items=()=>[...box.children].filter(x=>x.classList.contains('swp'));
+ const cancel=()=>{clearTimeout(timer);timer=0};
+ const place=()=>{if(!active)return;el.style.transform='';let r=el.getBoundingClientRect();
+  const prev=el.previousElementSibling,next=el.nextElementSibling;
+  if(prev&&prev.classList.contains('swp')){const pr=prev.getBoundingClientRect();if(fy-grab<pr.top+pr.height/2){box.insertBefore(el,prev);r=el.getBoundingClientRect()}}
+  if(next&&next.classList.contains('swp')){const nr=next.getBoundingClientRect();if(fy-grab+r.height>nr.top+nr.height/2){box.insertBefore(next,el);r=el.getBoundingClientRect()}}
+  el.style.transform=`translateY(${fy-grab-r.top}px)`};
+ const auto=()=>{if(!active)return;const H=window.innerHeight;if(fy<90)window.scrollBy(0,-8);else if(fy>H-130)window.scrollBy(0,8);place();raf=requestAnimationFrame(auto)};
+ const start=()=>{timer=0;if(items().length<2)return;active=true;el._reo=true;const r=el.getBoundingClientRect();grab=sy-r.top;fy=sy;el.classList.add('reo');box.classList.add('reobox');try{navigator.vibrate&&navigator.vibrate(25)}catch(_){}const a=document.activeElement;if(a&&a.blur)a.blur();raf=requestAnimationFrame(auto)};
+ const finish=()=>{cancel();if(!active){el=null;return}active=false;cancelAnimationFrame(raf);const done=el;done.style.transform='';done.classList.remove('reo');box.classList.remove('reobox');setTimeout(()=>{done._reo=false},50);
+  const sup=e=>{e.stopPropagation();e.preventDefault()};document.addEventListener('click',sup,true);setTimeout(()=>document.removeEventListener('click',sup,true),350);
+  el=null;onDone(items().map(x=>x.dataset.swid))};
+ box.addEventListener('touchstart',e=>{if(e.touches.length!==1)return;const w=e.target.closest('.swp');if(!w||w.parentElement!==box||w.classList.contains('open')||e.target.closest('button,input'))return;el=w;sx=e.touches[0].clientX;sy=e.touches[0].clientY;cancel();timer=setTimeout(start,450)},{passive:true});
+ box.addEventListener('touchmove',e=>{const t=e.touches[0];if(active){e.preventDefault();fy=t.clientY;return}if(timer&&(Math.abs(t.clientX-sx)>8||Math.abs(t.clientY-sy)>8))cancel()},{passive:false});
+ box.addEventListener('touchend',finish);box.addEventListener('touchcancel',finish);
+ box.addEventListener('contextmenu',e=>{if(timer||active)e.preventDefault()});
+ box.addEventListener('mousedown',e=>{if(e.button!==0)return;const w=e.target.closest('.swp');if(!w||w.parentElement!==box||e.target.closest('button,input'))return;el=w;sx=e.clientX;sy=e.clientY;cancel();timer=setTimeout(start,450);
+  const mv=ev=>{if(active){fy=ev.clientY;ev.preventDefault();return}if(timer&&(Math.abs(ev.clientX-sx)>8||Math.abs(ev.clientY-sy)>8))cancel()};const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);finish()};
+  document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up)})}
 function swClose(w){if(!w)return;w.classList.remove('open');const c=w.querySelector('.swc');if(c)c.style.transform=''}
 function swCloseAll(ex){document.querySelectorAll('.swp.open').forEach(w=>{if(w!==ex)swClose(w)})}
 function initSwipe(root,onDel){if(!root)return;root.querySelectorAll('.swp').forEach(w=>{if(w._sw)return;w._sw=1;const c=w.querySelector('.swc');let sx=null,sy=0,base=0,drag=null,moved=false,cur=0;
  c.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0)return;sx=e.clientX;sy=e.clientY;base=w.classList.contains('open')?-SWW:0;cur=base;drag=null;moved=false});
- c.addEventListener('pointermove',e=>{if(sx===null)return;const dx=e.clientX-sx,dy=e.clientY-sy;
+ c.addEventListener('pointermove',e=>{if(sx===null)return;if(w._reo){sx=null;return}const dx=e.clientX-sx,dy=e.clientY-sy;
   if(drag===null){if(Math.abs(dx)>10&&Math.abs(dx)>Math.abs(dy)*1.2){drag=true;try{c.setPointerCapture(e.pointerId)}catch(_){}swCloseAll(w);c.style.transition='none';const a=document.activeElement;if(a&&c.contains(a))a.blur()}else if(Math.abs(dy)>10)drag=false}
   if(drag){moved=true;cur=Math.max(-SWW-24,Math.min(0,base+dx));c.style.transform=`translateX(${cur}px)`;e.preventDefault()}});
  const end=()=>{if(sx===null)return;if(drag){c.style.transition='';const open=cur<-SWW/2;w.classList.toggle('open',open);c.style.transform=open?`translateX(${-SWW}px)`:''}sx=null;drag=null};
@@ -730,7 +752,7 @@ function rAufmass(a){
   a.innerHTML=`<button class="back">‹ Alle Aufmaße · ${esc(p.name)}</button><div class="row" style="align-items:center;justify-content:space-between;margin:2px 0 12px"><div><h2 style="margin:0">${esc(A.name)}</h2><div class="note" style="margin:0">${dDE(A.datum)}${p.kunde||p.ort?' · '+esc([p.kunde,p.ort].filter(Boolean).join(' · ')):''}</div></div><button class="btn sec" id="ae">✏️ Ändern</button></div>
   <button class="btn full" id="add" style="margin-bottom:12px">+ Position erfassen</button>
   ${PREF.fav.length?`<div class="favs">${PREF.fav.map((f,i)=>`<button type="button" data-fv="${i}"><span class="dot" style="background:${GCOL[f.gewerk]||'#888'}"></span>⭐ ${esc(favLabel(f))}</button>`).join('')}</div>`:''}
-  ${groups.length?groups.map(([g,ps])=>`<h3><span class="pill g-${g}">${g}</span> <span class="note">${ps.length} Position(en)</span></h3><div class="card">${ps.map(x=>swipeWrap(x.id,`<div class="pos" data-x="${x.id}"><div class="m"><div class="t">${esc(posTitle(x))}</div><div class="s">${esc([x.mat,x.bez].filter(Boolean).join(' · '))}</div></div><div class="p">${fmt(num(x.menge),num(x.menge)%1?2:0)} ${esc(x.einheit)}</div><button class="tbtn" data-delp="${x.id}" aria-label="Löschen" type="button">🗑</button></div>`,'swpos')).join('')}</div>`).join(''):'<div class="card empty">Noch keine Positionen erfasst.</div>'}
+  ${groups.length?groups.map(([g,ps])=>`<h3><span class="pill g-${g}">${g}</span> <span class="note">${ps.length} Position(en)</span></h3><div class="card" data-rg="${esc(g)}">${ps.map(x=>swipeWrap(x.id,`<div class="pos" data-x="${x.id}"><div class="m"><div class="t">${esc(posTitle(x))}</div><div class="s">${esc([x.mat,x.bez].filter(Boolean).join(' · '))}</div></div><div class="p">${fmt(num(x.menge),num(x.menge)%1?2:0)} ${esc(x.einheit)}</div><button class="tbtn" data-delp="${x.id}" aria-label="Löschen" type="button">🗑</button></div>`,'swpos')).join('')}</div>`).join('')+'<p class="note swhint">Lange drücken und ziehen zum Verschieben · nach links wischen zum Löschen.</p>':'<div class="card empty">Noch keine Positionen erfasst.</div>'}
   <div class="row"><button class="btn" id="apdf">📄 PDF: Aufmaß</button><button class="btn sec" id="asig">✍️ Unterschriften${A.sig&&(A.sig.ag||A.sig.an)?' ✓':''}</button></div>
   <p class="note">Nur dieses Aufmaß, ohne Preise. Das komplette PDF mit allen Aufmaßen, Isometrien und Fotos erstellst du im Projekt.</p>
 `;
@@ -741,6 +763,7 @@ function rAufmass(a){
   a.querySelectorAll('[data-x]').forEach(e=>e.onclick=ev=>{if(ev.target.closest('.tbtn'))return;posForm(p,A.pos.find(x=>x.id===e.dataset.x),A)});
   const delP=id=>{const i=A.pos.findIndex(x=>x.id===id);if(i<0)return;const old=A.pos[i];A.pos.splice(i,1);saveProject(p);render();undoToast('Position gelöscht',()=>{A.pos.splice(Math.min(i,A.pos.length),0,old);saveProject(p);render()})};
   a.querySelectorAll('.tbtn[data-delp]').forEach(b=>b.onclick=ev=>{ev.stopPropagation();delP(b.dataset.delp)});initSwipe(a,delP);
+  a.querySelectorAll('[data-rg]').forEach(cd=>initReorder(cd,ids=>{const g=cd.dataset.rg;const idx=[];A.pos.forEach((x,i)=>{if(x.gewerk===g)idx.push(i)});const items=ids.map(id=>A.pos.find(x=>x.id===id)).filter(Boolean);if(items.length!==idx.length)return;idx.forEach((ix,k)=>A.pos[ix]=items[k]);saveProject(p);render()}));
 }
 let lastPos=lsGet('isopro_lastpos',{gewerk:'Wärme',art:'Rohr',einheit:'lfm',mat:'',s:'',dn:'',ep:'',faktor:'1'});
 function posForm(p,x,A,tpl){A=A||aufmOf(p)[0]||newAufm(p);
