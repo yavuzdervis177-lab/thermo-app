@@ -1710,8 +1710,8 @@ async function aufmassPdf(p,mode='full',A){const full=mode==='full';toast('PDF w
   d.onNewPage=()=>{d.text((full?S0.name+' · ':'')+g+' (Fortsetzung)',M,d.y+10,{size:9,bold:true,color:GCOL[g]});d.y+=16;head(cols)};
   ps.forEach((x,i)=>{nr++;row(cols,[String(nr),[x.art,x.mat,x.bez].filter(Boolean).join(' – '),x.dn||'',x.s||'',fmt(num(x.menge),num(x.menge)%1?2:0),x.einheit||''],i)});
   d.onNewPage=null;d.y+=14});if(full&&SG[S0.id].some(Boolean)){sigLines(d,['Auftraggeber','Auftragnehmer'],SG[S0.id]);d.y+=6}d.y+=4});
- // Zusammenfassung der Mengen
- if(pos.length){const sum={};pos.forEach(x=>{const k=[x.gewerk,x.art,x.dn||'',x.s||'',x.einheit||''].join('|');(sum[k]=sum[k]||{g:x.gewerk,art:x.art,dn:x.dn||'',s:x.s||'',e:x.einheit||'',m:0}).m+=num(x.menge)});
+ // Zusammenfassung der Mengen (entfernt)
+ if(false){const sum={};pos.forEach(x=>{const k=[x.gewerk,x.art,x.dn||'',x.s||'',x.einheit||''].join('|');(sum[k]=sum[k]||{g:x.gewerk,art:x.art,dn:x.dn||'',s:x.s||'',e:x.einheit||'',m:0}).m+=num(x.menge)});
   const sc=[['',24,'l'],['Gewerk / Art',0,'l'],['DN / Ø',70,'l'],['Dämmd. mm',56,'r'],['Menge',60,'r'],['Einheit',44,'l']];sc[1][1]=cols[1][1];
   d.need(70);d.text('Zusammenfassung der Mengen'+(sheets.length>1?' (alle Aufmaße)':''),M,d.y+4,{size:12,bold:true});d.y+=10;d.line(M,d.y,W-M,d.y,'#1d2228',.8);d.y+=8;head(sc);
   d.onNewPage=()=>{head(sc)};Object.values(sum).forEach((s,i)=>row(sc,['',s.g+' – '+s.art,s.dn,s.s,fmt(s.m,s.m%1?2:0),s.e],i));d.onNewPage=null;d.y+=16}
