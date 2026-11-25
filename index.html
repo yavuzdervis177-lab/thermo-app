@@ -455,7 +455,7 @@ async function migrateLocalPhotos(){if(!S.db)return;const ids=[...allPhotoIds()]
 /* ---------- Stammdaten ---------- */
 const DN_STAHL=[[10,17.2],[15,21.3],[20,26.9],[25,33.7],[32,42.4],[40,48.3],[50,60.3],[65,76.1],[80,88.9],[100,114.3],[125,139.7],[150,168.3],[200,219.1],[250,273],[300,323.9],[350,355.6],[400,406.4]];
 const CU=[12,15,18,22,28,35,42,54,64,76.1,88.9,108];
-const ARTEN=[['Rohr','lfm'],['Bogen','St'],['Bogen 90°','St'],['Bogen 45°','St'],['T-Stück','St'],['Reduzierung','St'],['Armatur / Ventil','St'],['Flanschpaar','St'],['Abschluss / Endstelle','St'],['Fläche (Behälter, Kanal)','m²'],['Rohrabschottung','St'],['Stutzen','St'],['Armaturenkappe','St'],['Kofferkappe','St'],['Flanschkappe','St'],['Endkappe','St'],['Pumpenkappe','St'],['Kreuzstück','St'],['Halterungsausschnitt','St'],['Durchführung','St'],['Dehnfuge','St'],['Kappe / Formteil','St'],['Sonstiges','psch']];
+const ARTEN=[['Rohrleitung','lfm'],['Bogen','St'],['Bogen 90°','St'],['Bogen 45°','St'],['T-Stück','St'],['Reduzierung','St'],['Armatur / Ventil','St'],['Flanschpaar','St'],['Abschluss / Endstelle','St'],['Endmanschette','St'],['Fläche (Behälter, Kanal)','m²'],['Rohrabschottung','St'],['Stutzen','St'],['Armaturenkappe','St'],['Kofferkappe','St'],['Flanschkappe','St'],['Endkappe','St'],['Pumpenkappe','St'],['Kreuzstück','St'],['Halterungsausschnitt','St'],['Durchführung','St'],['Dehnfuge','St'],['Kappe / Formteil','St'],['Sonstiges','psch']];
 const GEWERKE=['Wärme','Kälte','Schall','Brandschutz'];
 const STATUS=['Anfrage','Angebot','Auftrag','In Arbeit','Abgeschlossen'];
 const STD_S=[6,9,13,19,25,32,40,50,60,70,80,100,120,140,160,180,200];
@@ -689,7 +689,7 @@ function aufmassText(p){let t=`AUFMASS – ${p.name}\n`;
 function csv(p){const h=['Nr','Gewerk','Art','DN / Ø','Dämmdicke mm','Material','Bemerkung','Menge','Einheit'];const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';const f=n=>String(Math.round(n*100)/100).replace('.',',');
   return '﻿'+[h.join(';'),...allPos(p).map((x,i)=>[i+1,x.gewerk,x.art,x.dn,x.s,x.mat,x.bez,f(num(x.menge)),x.einheit].map(q).join(';'))].join('\r\n')}
 /* ---------- Einstellungen: Mitarbeiter & Favoriten ---------- */
-const PREF=Object.assign({ma:[],fav:[]},lsGet('thermo_prefs',{}));let _pT=0,_pBusy=false;
+const PREF=Object.assign({ma:[],fav:[]},lsGet('thermo_prefs',{}));PREF.fav.forEach(f=>{if(f.art==='Rohr')f.art='Rohrleitung'});let _pT=0,_pBusy=false;
 function prefSave(){lsSet('thermo_prefs',PREF);if(!S.db)return;clearTimeout(_pT);_pBusy=true;_pT=setTimeout(async()=>{try{await S.db.doc('einstellungen/prefs').set({ma:PREF.ma,fav:PREF.fav,updated:Date.now()})}catch(e){}_pBusy=false},600)}
 function prefSub(){if(!S.db)return;let first=true;S.db.doc('einstellungen/prefs').onSnapshot(...MO(),sn=>{if(sn.metadata&&sn.metadata.fromCache&&first)return;
  const r=sn.exists?sn.data():null;if(first){first=false;const ma=[...new Set([...(r&&r.ma||[]),...PREF.ma])].sort((x,y)=>x.localeCompare(y,'de'));const fav=[...(r&&r.fav||[])];PREF.fav.forEach(f=>{if(!fav.some(g=>g.id===f.id))fav.push(f)});
@@ -724,11 +724,11 @@ if(!lsGet('thermo_first',0))lsSet('thermo_first',Date.now());
 function bkBannerHTML(){const has=Object.keys(S.projects).length||Object.keys(ST.items).length;if(!has)return '';const last=lsGet('thermo_lastbk',0),ref=last||lsGet('thermo_first',Date.now());const days=Math.floor((Date.now()-ref)/864e5);
  if(days<7||lsGet('thermo_bksnooze',0)>Date.now())return '';
  return `<div class="bkban">💾 <b>${last?'Letzte Datensicherung vor '+days+' Tagen':'Noch keine Datensicherung'}</b><div class="note" style="margin:2px 0 8px">Alle Daten liegen nur auf diesem Handy. Eine Sicherung per Mail oder Google Drive schützt vor Verlust.</div><div class="row"><button class="btn" onclick="backupExport()">Jetzt sichern</button><button class="btn sec" onclick="lsSet('thermo_bksnooze',Date.now()+3*864e5);render()">Später</button></div></div>`}
-function aufmOf(p){if(!Array.isArray(p.aufm)){p.aufm=(p.pos&&p.pos.length)?[{id:uid(),name:'Aufmaß 1',datum:p.datum||today(),pos:p.pos}]:[];delete p.pos}p.aufm.forEach(x=>x.pos=x.pos||[]);return p.aufm}
+function aufmOf(p){if(!Array.isArray(p.aufm)){p.aufm=(p.pos&&p.pos.length)?[{id:uid(),name:'Aufmaß 1',datum:p.datum||today(),pos:p.pos}]:[];delete p.pos}p.aufm.forEach(x=>{x.pos=x.pos||[];x.pos.forEach(y=>{if(y.art==='Rohr')y.art='Rohrleitung'});if(!x.gewerk)x.gewerk=(x.pos[0]&&x.pos[0].gewerk)||lastPos.gewerk||'Wärme'});return p.aufm}
 const allPos=p=>aufmOf(p).flatMap(x=>x.pos);
 const favLabel=f=>[f.art,f.dn,f.s?f.s+' mm':''].filter(Boolean).join(' · ');
 const aufmSorted=p=>aufmOf(p).slice().sort((a,b)=>(a.datum||'').localeCompare(b.datum||'')||0);
-function newAufm(p){const L=aufmOf(p);const A={id:uid(),name:'Aufmaß '+(L.length+1),datum:today(),pos:[]};L.push(A);return A}
+function newAufm(p,gw){const L=aufmOf(p);const A={id:uid(),name:'Aufmaß '+(L.length+1),datum:today(),gewerk:gw||lastPos.gewerk||'Wärme',pos:[]};L.push(A);return A}
 function aufmEdit(p,A){openSheet(`<h3 style="margin-top:0">Aufmaß bearbeiten</h3><div class="grid2"><label class="f"><span>Bezeichnung</span><input id="an_" value="${esc(A.name)}" autocomplete="off"></label><label class="f"><span>Datum</span><input type="date" id="ad_" value="${esc(A.datum||'')}"></label></div><div class="row"><button class="btn" id="ok">Speichern</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{$('#ok').onclick=()=>{A.name=$('#an_').value.trim()||A.name;A.datum=$('#ad_').value||A.datum;saveProject(p);closeSheet();render()}})}
 function askDelAufm(p,A){openSheet(`<h3>„${esc(A.name)}“ (${dDE(A.datum)}) löschen?</h3><p class="note">${A.pos.length} Position(en) werden entfernt.</p><div class="row"><button class="btn bad" id="y">Löschen</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{$('#y').onclick=()=>{const L=aufmOf(p);const i=L.indexOf(A);if(i<0)return;L.splice(i,1);if(UI.asheet===A.id)UI.asheet=null;saveProject(p);closeSheet();render();undoToast('Aufmaß gelöscht',()=>{L.splice(Math.min(i,L.length),0,A);saveProject(p);render()})}})}
 function rAufmass(a){
@@ -750,7 +750,8 @@ function rAufmass(a){
    initSwipe(a,id=>{const x=AL.find(z=>z.id===id);if(x)askDelAufm(p,x)});return}
   const groups=GEWERKE.map(g=>[g,A.pos.filter(x=>x.gewerk===g)]).filter(x=>x[1].length);
   a.innerHTML=`<button class="back">‹ Alle Aufmaße · ${esc(p.name)}</button><div class="row" style="align-items:center;justify-content:space-between;margin:2px 0 12px"><div><h2 style="margin:0">${esc(A.name)}</h2><div class="note" style="margin:0">${dDE(A.datum)}${p.kunde||p.ort?' · '+esc([p.kunde,p.ort].filter(Boolean).join(' · ')):''}</div></div><button class="btn sec" id="ae">✏️ Ändern</button></div>
-  <button class="btn full" id="add" style="margin-bottom:12px">+ Position erfassen</button>
+  <div class="note" style="margin:0 0 4px">Gewerk dieses Aufmaßes</div><div class="chips" id="agw" style="margin:0 0 12px">${GEWERKE.map(g=>`<button type="button" data-ag="${g}" class="${A.gewerk===g?'on':''}">${g}</button>`).join('')}</div>
+  <button class="btn full" id="add" style="margin-bottom:12px">+ Position erfassen (${esc(A.gewerk)})</button>
   ${PREF.fav.length?`<div class="favs">${PREF.fav.map((f,i)=>`<button type="button" data-fv="${i}"><span class="dot" style="background:${GCOL[f.gewerk]||'#888'}"></span>⭐ ${esc(favLabel(f))}</button>`).join('')}</div>`:''}
   ${groups.length?groups.map(([g,ps])=>`<h3><span class="pill g-${g}">${g}</span> <span class="note">${ps.length} Position(en)</span></h3><div class="card" data-rg="${esc(g)}">${ps.map(x=>swipeWrap(x.id,`<div class="pos" data-x="${x.id}"><div class="m"><div class="t">${esc(posTitle(x))}</div><div class="s">${esc([x.mat,x.bez].filter(Boolean).join(' · '))}</div></div><div class="p">${fmt(num(x.menge),num(x.menge)%1?2:0)} ${esc(x.einheit)}</div><button class="tbtn" data-delp="${x.id}" aria-label="Löschen" type="button">🗑</button></div>`,'swpos')).join('')}</div>`).join('')+'<p class="note swhint">Lange drücken und ziehen zum Verschieben · nach links wischen zum Löschen.</p>':'<div class="card empty">Noch keine Positionen erfasst.</div>'}
   <div class="row"><button class="btn" id="apdf">📄 PDF: Aufmaß</button><button class="btn sec" id="asig">✍️ Unterschriften${A.sig&&(A.sig.ag||A.sig.an)?' ✓':''}</button></div>
@@ -758,6 +759,10 @@ function rAufmass(a){
 `;
   $('#apdf').onclick=()=>aufmassPdf(p,'aufmass',A).catch(e=>toast('PDF fehlgeschlagen'));
   a.querySelector('.back').onclick=()=>{UI.asheet=null;render()};$('#ae').onclick=()=>aufmEdit(p,A);
+  a.querySelectorAll('[data-ag]').forEach(b=>b.onclick=()=>{const g=b.dataset.ag;if(g===A.gewerk)return;const other=A.pos.filter(x=>x.gewerk!==g);
+   const apply=all=>{A.gewerk=g;lastPos.gewerk=g;lsSet('isopro_lastpos',lastPos);if(all)A.pos.forEach(x=>x.gewerk=g);saveProject(p);closeSheet();render()};
+   if(!other.length){apply(false);return}
+   openSheet(`<h3 style="margin-top:0">Gewerk auf „${esc(g)}“ ändern?</h3><p class="note">${other.length} vorhandene Position(en) haben ein anderes Gewerk.</p><div style="display:grid;gap:8px"><button class="btn" id="gall">Alle Positionen auf ${esc(g)} umstellen</button><button class="btn sec" id="gnew">Nur für neue Positionen</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{$('#gall').onclick=()=>apply(true);$('#gnew').onclick=()=>apply(false)})});
   $('#asig').onclick=()=>{A.sig=A.sig||{};sigManage(A.name+' · '+dDE(A.datum),[{label:'Auftraggeber',get:()=>A.sig.ag,set:v=>{if(v)A.sig.ag=v;else delete A.sig.ag}},{label:'Auftragnehmer',get:()=>A.sig.an,set:v=>{if(v)A.sig.an=v;else delete A.sig.an}}],()=>{saveProject(p);render()})};
   $('#add').onclick=()=>posForm(p,null,A);a.querySelectorAll('[data-fv]').forEach(b=>b.onclick=()=>{const f=PREF.fav[+b.dataset.fv];if(f)posForm(p,null,A,f)});
   a.querySelectorAll('[data-x]').forEach(e=>e.onclick=ev=>{if(ev.target.closest('.tbtn'))return;posForm(p,A.pos.find(x=>x.id===e.dataset.x),A)});
@@ -765,12 +770,12 @@ function rAufmass(a){
   a.querySelectorAll('.tbtn[data-delp]').forEach(b=>b.onclick=ev=>{ev.stopPropagation();delP(b.dataset.delp)});initSwipe(a,delP);
   a.querySelectorAll('[data-rg]').forEach(cd=>initReorder(cd,ids=>{const g=cd.dataset.rg;const idx=[];A.pos.forEach((x,i)=>{if(x.gewerk===g)idx.push(i)});const items=ids.map(id=>A.pos.find(x=>x.id===id)).filter(Boolean);if(items.length!==idx.length)return;idx.forEach((ix,k)=>A.pos[ix]=items[k]);saveProject(p);render()}));
 }
-let lastPos=lsGet('isopro_lastpos',{gewerk:'Wärme',art:'Rohr',einheit:'lfm',mat:'',s:'',dn:'',ep:'',faktor:'1'});
+let lastPos=lsGet('isopro_lastpos',{gewerk:'Wärme',art:'Rohrleitung',einheit:'lfm',mat:'',s:'',dn:'',ep:'',faktor:'1'});if(lastPos.art==='Rohr')lastPos.art='Rohrleitung';
 function posForm(p,x,A,tpl){A=A||aufmOf(p)[0]||newAufm(p);
-  const isNew=!x;const tp=tpl?{gewerk:tpl.gewerk,art:tpl.art,einheit:tpl.einheit,dn:tpl.dn||'',s:tpl.s||'',mat:tpl.mat||''}:{};const v=x?{...x}:{...lastPos,...tp,id:uid(),menge:'',bez:''};
+  const isNew=!x;const tp=tpl?{art:tpl.art,einheit:tpl.einheit,dn:tpl.dn||'',s:tpl.s||'',mat:tpl.mat||''}:{};const v=x?{...x}:{...lastPos,...tp,gewerk:A.gewerk||lastPos.gewerk,id:uid(),menge:'',bez:''};
   const dnOpts=`<option value="">– wählen –</option>${DN_STAHL.map(([n,d])=>`<option value="DN ${n} (${fmt(d,1)})">DN ${n} – ${fmt(d,1)} mm</option>`).join('')}${CU.map(d=>`<option value="Cu ${fmt(d,d%1?1:0)}">Cu ${fmt(d,d%1?1:0)} mm</option>`).join('')}`;
   openSheet(`<h3 style="margin-top:0">${isNew?'Neue Position':'Position bearbeiten'}</h3>
-  <label class="f"><span>Gewerk</span><div class="chips" id="gw">${GEWERKE.map(g=>`<button type="button" data-g="${g}" class="${v.gewerk===g?'on':''}">${g}</button>`).join('')}</div></label>
+  <div class="note" style="margin:-6px 0 10px"><span class="pill g-${esc(v.gewerk)}">${esc(v.gewerk)}</span> ${isNew?'– Gewerk wird oben im Aufmaß gewählt':''}</div>
   <div class="grid2">
    <label class="f"><span>Art</span><select id="f_art">${(ARTEN.some(z=>z[0]===v.art)?ARTEN:[[v.art,v.einheit],...ARTEN]).map(([n])=>`<option ${v.art===n?'selected':''}>${n}</option>`).join('')}</select></label>
    <label class="f"><span>Einheit</span><select id="f_einheit">${['lfm','St','m²','m','psch','h'].map(u=>`<option ${v.einheit===u?'selected':''}>${u}</option>`).join('')}</select></label>
@@ -785,7 +790,6 @@ function posForm(p,x,A,tpl){A=A||aufmOf(p)[0]||newAufm(p);
   </div>
   <div class="row"><button class="btn" id="sv">${isNew?'Hinzufügen':'Speichern'}</button>${isNew?'<button class="btn sec" id="sv2">+ Weitere</button>':'<button class="btn sec" id="dup">Duplizieren</button><button class="btn bad" id="rm">Löschen</button>'}<button class="btn sec" onclick="closeSheet()">Abbrechen</button></div><button class="btn sec full" id="fav" type="button" style="margin-top:8px">⭐ Als Favorit speichern</button>`,()=>{
     const F=k=>$('#f_'+k);
-    document.querySelectorAll('#gw [data-g]').forEach(b=>b.onclick=()=>{v.gewerk=b.dataset.g;document.querySelectorAll('#gw [data-g]').forEach(c=>c.classList.toggle('on',c===b))});
     F('art').onchange=()=>{const u=(ARTEN.find(a=>a[0]===F('art').value)||[])[1];if(u)F('einheit').value=u};
     const collect=()=>{['art','einheit','dn','s','mat','bez','menge'].forEach(k=>v[k]=F(k).value.trim());return v};
     const commit=again=>{collect();if(!num(v.menge)){F('menge').focus();toast('Bitte Menge eingeben');return}
@@ -1043,7 +1047,7 @@ function isoBBox(d){let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;const add=(x,y)=>{x0=Math.
  Object.values(d.lb||{}).forEach(o=>{});
  return x0>x1?null:{x0:x0-40,y0:y0-34,x1:x1+40,y1:y1+34}}
 function isoBom(d){const rows={};let miss=0;const add=(art,dn,s,q,u)=>{const k=[art,dn,s].join('|');(rows[k]=rows[k]||{art,dn,s,menge:0,einheit:u,k}).menge+=q};
- d.segs.forEach(g=>{const l=num(g.len)/1000;if(!l)miss++;add('Rohr',g.dn||d.dn,g.s||d.s,l,'lfm')});
+ d.segs.forEach(g=>{const l=num(g.len)/1000;if(!l)miss++;add('Rohrleitung',g.dn||d.dn,g.s||d.s,l,'lfm')});
  fittings(d).forEach(f=>{if((f.t==='A'||f.t==='E')&&d.ends===false)return;add(f.t==='B'?`Bogen ${f.ang}°`:AUTO[f.t][1],f.seg.dn||d.dn,f.seg.s||d.s,1,'St')});
  d.syms.forEach(y=>{const S=SYMS[y.type];if(!S.art)return;const g=d.segs.find(x=>x.id===y.seg)||{};add(S.art,g.dn||d.dn,g.s||d.s,1,'St')});
  const order=a=>{const i=ARTEN.findIndex(x=>x[0]===a);return i<0?(a.startsWith('Bogen')?1.5:99):i};
@@ -1246,7 +1250,7 @@ function isoToAufmass(p,d){const {rows,miss}=isoBom(d);const use=rows.filter(r=>
  <label class="f"><span>In welches Aufmaß?</span><select id="ta_"><option value="new" ${def==='new'?'selected':''}>+ Neues Aufmaß (${dDE(today())})</option>${AL.map(x=>`<option value="${x.id}" ${def===x.id?'selected':''}>${esc(x.name)} · ${dDE(x.datum)} (${x.pos.length} Pos.)</option>`).join('')}</select></label>
  <p class="note">Jedes Aufmaß bleibt getrennt gespeichert. Wurde diese Zeichnung schon ins gewählte Aufmaß übernommen, werden die Positionen dort aktualisiert.</p>
  <div class="row"><button class="btn" id="ok">Übernehmen</button><button class="btn sec" onclick="closeSheet()">Abbrechen</button></div>`,()=>{
- $('#ok').onclick=()=>{const v=$('#ta_').value;const T=v==='new'?newAufm(p):aufmOf(p).find(x=>x.id===v);if(!T)return;const old={};T.pos.filter(x=>x.src===d.id).forEach(x=>old[x.isoKey]=x);T.pos=T.pos.filter(x=>x.src!==d.id);
+ $('#ok').onclick=()=>{const v=$('#ta_').value;const T=v==='new'?newAufm(p,d.gewerk):aufmOf(p).find(x=>x.id===v);if(!T)return;const old={};T.pos.filter(x=>x.src===d.id).forEach(x=>old[x.isoKey]=x);T.pos=T.pos.filter(x=>x.src!==d.id);
   use.forEach(r=>{const o=old[r.k];T.pos.push({id:o?o.id:uid(),gewerk:d.gewerk,art:r.art,einheit:r.einheit,dn:r.dn||'',s:r.s||'',mat:o?o.mat:'',bez:'Iso: '+d.name,menge:String(r2(r.menge)).replace('.',','),faktor:o?o.faktor:'1',ep:o?o.ep:'',src:d.id,isoKey:r.k})});
   saveProject(p);closeSheet();toast('Ins Aufmaß übernommen: '+T.name);UI.aproj=p.id;UI.asheet=T.id;location.hash='aufmass'}})}
 function isoDomBBox(d){try{const ns='http://www.w3.org/2000/svg';const s=document.createElementNS(ns,'svg');s.setAttribute('style','position:absolute;left:-9999px;top:0;width:10px;height:10px;visibility:hidden');s.innerHTML=`<style>${ISO_STYLE}</style><g>${isoContent(d)}</g>`;document.body.appendChild(s);const bb=s.querySelector('g').getBBox();s.remove();if(!bb.width)return null;return{x0:bb.x-14,y0:bb.y-14,x1:bb.x+bb.width+14,y1:bb.y+bb.height+14}}catch(e){return null}}
